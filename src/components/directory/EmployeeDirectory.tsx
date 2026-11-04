@@ -16,14 +16,58 @@ import {
   X,
   Trash2,
   AlertTriangle,
-  UserPlus
+  UserPlus,
+  Camera,
+  Upload,
+  RotateCcw
 } from 'lucide-react';
 import { useWorkspace } from '../../context/WorkspaceContext';
 import { User, AvailabilityStatus } from '../../types';
 import { InviteEmployeeModal } from '../modals/InviteEmployeeModal';
 
+// Male & Female Silhouette SVG Fallbacks
+export const MaleSilhouetteSVG: React.FC<{ className?: string }> = ({ className = "w-full h-full" }) => (
+  <div className={`relative flex items-center justify-center bg-slate-200 dark:bg-slate-800 text-slate-400 dark:text-slate-500 overflow-hidden ${className}`}>
+    <svg viewBox="0 0 24 24" fill="currentColor" className="w-3/4 h-3/4 translate-y-1">
+      <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z" />
+    </svg>
+  </div>
+);
+
+export const FemaleSilhouetteSVG: React.FC<{ className?: string }> = ({ className = "w-full h-full" }) => (
+  <div className={`relative flex items-center justify-center bg-slate-200 dark:bg-slate-800 text-slate-400 dark:text-slate-500 overflow-hidden ${className}`}>
+    <svg viewBox="0 0 24 24" fill="currentColor" className="w-3/4 h-3/4 translate-y-1">
+      <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v1c0 .55.45 1 1 1h14c.55 0 1-.45 1-1v-1c0-2.66-5.33-4-8-4z" />
+    </svg>
+  </div>
+);
+
+export const EmployeeAvatar: React.FC<{ emp: User; className?: string; onClick?: () => void }> = ({ emp, className = "h-16 w-16 rounded-2xl object-cover", onClick }) => {
+  const [hasError, setHasError] = useState(false);
+  const isFemale = emp.gender === 'Perempuan' || (emp.gender as any) === 'Female';
+  const hasValidPhoto = emp.avatar && !hasError && !emp.avatar.includes('placeholder') && !emp.avatar.includes('silhouette');
+
+  if (hasValidPhoto) {
+    return (
+      <img
+        src={emp.avatar}
+        alt={emp.name}
+        onError={() => setHasError(true)}
+        onClick={onClick}
+        className={`${className} ${onClick ? 'cursor-pointer' : ''}`}
+      />
+    );
+  }
+
+  return (
+    <div onClick={onClick} className={`${className} overflow-hidden ${onClick ? 'cursor-pointer' : ''}`}>
+      {isFemale ? <FemaleSilhouetteSVG className="w-full h-full" /> : <MaleSilhouetteSVG className="w-full h-full" />}
+    </div>
+  );
+};
+
 export const EmployeeDirectory: React.FC = () => {
-  const { users, currentUser, startDirectMessage, setCurrentUser, deleteUser } = useWorkspace();
+  const { users, currentUser, startDirectMessage, setCurrentUser, deleteUser, updateUser } = useWorkspace();
 
   const [viewMode, setViewMode] = useState<'grid' | 'orgChart'>('grid');
   const [searchQuery, setSearchQuery] = useState('');
@@ -70,6 +114,29 @@ export const EmployeeDirectory: React.FC = () => {
     }
   };
 
+  const handleAvatarUpload = (e: React.ChangeEvent<HTMLInputElement>, targetUserId: string) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onload = () => {
+        if (typeof reader.result === 'string') {
+          updateUser(targetUserId, { avatar: reader.result });
+          if (selectedEmployee && selectedEmployee.id === targetUserId) {
+            setSelectedEmployee(prev => prev ? { ...prev, avatar: reader.result as string } : null);
+          }
+        }
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const handleRemovePhoto = (targetUserId: string) => {
+    updateUser(targetUserId, { avatar: '' });
+    if (selectedEmployee && selectedEmployee.id === targetUserId) {
+      setSelectedEmployee(prev => prev ? { ...prev, avatar: '' } : null);
+    }
+  };
+
   return (
     <div className="space-y-6 animate-in fade-in duration-200">
       {/* Header and Controls */}
@@ -80,7 +147,7 @@ export const EmployeeDirectory: React.FC = () => {
             Direktori Karyawan
           </h2>
           <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-            Kelola data personel dan struktur tim perusahaan.
+            Kelola data personel, profil kustom foto, dan struktur tim perusahaan.
           </p>
         </div>
 
@@ -175,10 +242,10 @@ export const EmployeeDirectory: React.FC = () => {
                   {/* Photo & Status */}
                   <div className="relative mb-3 flex items-start justify-between">
                     <div className="relative">
-                      <img
-                        src={emp.avatar}
-                        alt={emp.name}
+                      <EmployeeAvatar
+                        emp={emp}
                         className="h-16 w-16 rounded-2xl object-cover ring-2 ring-slate-100 dark:ring-slate-800"
+                        onClick={() => setSelectedEmployee(emp)}
                       />
                       <span
                         className={`absolute -bottom-1 -right-1 h-3.5 w-3.5 rounded-full ring-2 ring-white dark:ring-slate-900 ${st.color}`}
@@ -276,9 +343,8 @@ export const EmployeeDirectory: React.FC = () => {
                 onClick={() => setSelectedEmployee(users[0])}
                 className="cursor-pointer rounded-2xl border-2 border-red-500 bg-red-50/40 p-4 shadow-md text-center max-w-xs transition hover:scale-105 dark:bg-red-950/20"
               >
-                <img
-                  src={users[0].avatar}
-                  alt={users[0].name}
+                <EmployeeAvatar
+                  emp={users[0]}
                   className="mx-auto h-14 w-14 rounded-full object-cover ring-2 ring-red-500"
                 />
                 <h4 className="mt-2 text-xs font-bold text-slate-900 dark:text-white">
@@ -292,7 +358,7 @@ export const EmployeeDirectory: React.FC = () => {
               <div className="h-8 w-0.5 bg-slate-300 dark:bg-slate-700" />
             </div>
 
-            {/* Level 2 Managers: Nadia Putri, Rina Wijaya, Maya Anggraini, Budi Santoso */}
+            {/* Level 2 Managers */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 w-full max-w-4xl pt-2 border-t-2 border-slate-300 dark:border-slate-700">
               {users.slice(1, 5).map(mgr => (
                 <div
@@ -300,9 +366,8 @@ export const EmployeeDirectory: React.FC = () => {
                   onClick={() => setSelectedEmployee(mgr)}
                   className="cursor-pointer rounded-2xl border border-slate-200 bg-slate-50/80 p-3.5 text-center shadow-xs transition hover:border-red-400 dark:border-slate-800 dark:bg-slate-800/60"
                 >
-                  <img
-                    src={mgr.avatar}
-                    alt={mgr.name}
+                  <EmployeeAvatar
+                    emp={mgr}
                     className="mx-auto h-12 w-12 rounded-full object-cover"
                   />
                   <h5 className="mt-2 text-xs font-bold text-slate-900 dark:text-white truncate">
@@ -321,43 +386,106 @@ export const EmployeeDirectory: React.FC = () => {
         </div>
       )}
 
-      {/* Employee Detail Modal */}
+      {/* CATCHY EMPLOYEE SHOWCASE MODAL WITH CUSTOM PHOTO UPLOAD & SILHOUETTE FALLBACK */}
       {selectedEmployee && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-xs">
-          <div className="w-full max-w-lg rounded-3xl bg-white p-6 shadow-2xl dark:bg-slate-900 border border-slate-200 dark:border-slate-800 animate-in fade-in zoom-in-95 duration-150">
-            <div className="flex items-start justify-between border-b border-slate-100 pb-3 dark:border-slate-800">
-              <div className="flex items-center gap-3">
-                <img
-                  src={selectedEmployee.avatar}
-                  alt={selectedEmployee.name}
-                  className="h-12 w-12 rounded-2xl object-cover ring-2 ring-red-500"
-                />
-                <div>
-                  <h3 className="text-base font-bold text-slate-900 dark:text-white">
-                    {selectedEmployee.name}
-                  </h3>
-                  <div className="text-xs font-semibold text-red-600">
-                    {selectedEmployee.position}
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="w-full max-w-xl rounded-3xl bg-white dark:bg-slate-900 shadow-2xl border border-slate-200 dark:border-slate-800 overflow-hidden space-y-0">
+            {/* HEROIC SHOWCASE HEADER */}
+            <div className="relative bg-gradient-to-r from-slate-950 via-slate-900 to-red-950 p-6 text-white overflow-hidden">
+              {/* Background Accent Lines */}
+              <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(220,38,38,0.25),transparent_60%)] pointer-events-none" />
+              
+              <div className="relative z-10 flex items-start justify-between">
+                <div className="flex items-center gap-4">
+                  {/* Photo Avatar with Hover Upload Overlay */}
+                  <div className="relative group shrink-0">
+                    <EmployeeAvatar
+                      emp={selectedEmployee}
+                      className="h-20 w-20 rounded-2xl object-cover ring-4 ring-white/20 shadow-xl"
+                    />
+                    <label className="absolute inset-0 bg-black/60 rounded-2xl flex flex-col items-center justify-center opacity-0 group-hover:opacity-100 transition cursor-pointer text-white">
+                      <Camera className="h-5 w-5 mb-0.5" />
+                      <span className="text-[9px] font-bold">Ganti Foto</span>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={e => handleAvatarUpload(e, selectedEmployee.id)}
+                        className="hidden"
+                      />
+                    </label>
+                  </div>
+
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <h3 className="text-lg font-black tracking-tight text-white">
+                        {selectedEmployee.name}
+                      </h3>
+                      <span className="rounded-full bg-red-600/90 text-white px-2.5 py-0.5 text-[10px] font-extrabold uppercase tracking-wider">
+                        {selectedEmployee.role.replace('_', ' ')}
+                      </span>
+                    </div>
+                    <div className="text-xs font-bold text-red-400">
+                      {selectedEmployee.position}
+                    </div>
+                    <div className="text-[11px] text-slate-300">
+                      {selectedEmployee.department}
+                    </div>
                   </div>
                 </div>
+
+                <button
+                  onClick={() => setSelectedEmployee(null)}
+                  className="rounded-xl bg-white/10 p-2 text-white hover:bg-white/20 transition cursor-pointer"
+                >
+                  <X className="h-4 w-4" />
+                </button>
               </div>
-              <button
-                onClick={() => setSelectedEmployee(null)}
-                className="rounded-lg p-1 text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800"
-              >
-                ✕
-              </button>
+
+              {/* Photo Upload & Reset Actions Row */}
+              <div className="relative z-10 mt-4 pt-3 border-t border-white/10 flex items-center justify-between gap-2 text-xs">
+                <div className="flex items-center gap-2">
+                  <label className="flex items-center gap-1.5 rounded-xl bg-white/15 hover:bg-white/25 px-3 py-1.5 text-[11px] font-bold text-white transition cursor-pointer">
+                    <Upload className="h-3.5 w-3.5 text-red-400" />
+                    <span>Upload Foto Kustom</span>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={e => handleAvatarUpload(e, selectedEmployee.id)}
+                      className="hidden"
+                    />
+                  </label>
+
+                  {selectedEmployee.avatar && (
+                    <button
+                      type="button"
+                      onClick={() => handleRemovePhoto(selectedEmployee.id)}
+                      className="flex items-center gap-1 rounded-xl bg-white/10 hover:bg-white/20 px-2.5 py-1.5 text-[11px] text-slate-300 transition cursor-pointer"
+                      title="Ganti ke siluet abu-abu bawaan"
+                    >
+                      <RotateCcw className="h-3 w-3" />
+                      <span>Pakai Siluet</span>
+                    </button>
+                  )}
+                </div>
+
+                <span className="text-[10px] text-slate-400">
+                  {selectedEmployee.gender || 'Laki-laki'} • Siluet Otomatis jika Tanpa Foto
+                </span>
+              </div>
             </div>
 
-            <div className="mt-4 space-y-4 text-xs">
+            {/* SHOWCASE BODY DETAILS */}
+            <div className="p-6 space-y-4 text-xs">
               <div>
-                <span className="font-bold text-slate-400 text-[10px] block uppercase">Bio Ringkas</span>
-                <p className="mt-1 text-slate-700 dark:text-slate-300 leading-relaxed bg-slate-50 p-3 rounded-xl dark:bg-slate-800/50">
+                <span className="font-bold text-slate-400 text-[10px] block uppercase tracking-wider mb-1">
+                  Bio Ringkas & Peran Utama
+                </span>
+                <p className="text-slate-700 dark:text-slate-300 leading-relaxed bg-slate-50 dark:bg-slate-800/60 p-3.5 rounded-2xl border border-slate-100 dark:border-slate-800">
                   {selectedEmployee.bio || 'Karyawan berdedikasi tinggi di tim WORKSPACE.'}
                 </p>
               </div>
 
-              <div className="grid grid-cols-2 gap-3 bg-slate-50 p-3 rounded-2xl dark:bg-slate-800/50">
+              <div className="grid grid-cols-2 gap-3 bg-slate-50 dark:bg-slate-800/60 p-4 rounded-2xl border border-slate-100 dark:border-slate-800">
                 <div>
                   <span className="text-[10px] text-slate-400 font-bold block">ID Karyawan / NIK</span>
                   <span className="font-mono text-xs font-bold text-slate-900 dark:text-white">{selectedEmployee.employeeId || 'EMP-' + selectedEmployee.id}</span>
@@ -415,14 +543,14 @@ export const EmployeeDirectory: React.FC = () => {
               {/* Skills */}
               {selectedEmployee.skills && (
                 <div>
-                  <span className="font-bold text-slate-400 text-[10px] block uppercase mb-1.5">
-                    Keahlian & Kompetensi
+                  <span className="font-bold text-slate-400 text-[10px] block uppercase tracking-wider mb-1.5">
+                    Keahlian & Kompetensi Utama
                   </span>
                   <div className="flex flex-wrap gap-1.5">
                     {selectedEmployee.skills.map(s => (
                       <span
                         key={s}
-                        className="rounded-lg bg-slate-100 px-2 py-0.5 text-[11px] font-semibold text-slate-700 dark:bg-slate-800 dark:text-slate-300"
+                        className="rounded-xl bg-slate-100 px-2.5 py-1 text-[11px] font-bold text-slate-700 dark:bg-slate-800 dark:text-slate-300"
                       >
                         {s}
                       </span>
@@ -432,16 +560,18 @@ export const EmployeeDirectory: React.FC = () => {
               )}
             </div>
 
-            <div className="mt-6 flex flex-wrap items-center justify-between gap-2 border-t border-slate-100 pt-3 dark:border-slate-800">
+            {/* SHOWCASE FOOTER ACTIONS */}
+            <div className="p-4 bg-slate-50 dark:bg-slate-900 border-t border-slate-100 dark:border-slate-800 flex flex-wrap items-center justify-between gap-2">
               <div className="flex items-center gap-2">
                 <button
+                  type="button"
                   onClick={() => {
                     setCurrentUser(selectedEmployee);
                     setSelectedEmployee(null);
                   }}
-                  className="rounded-xl border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-100 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800 cursor-pointer"
+                  className="rounded-xl border border-slate-200 bg-white dark:bg-slate-800 px-3.5 py-2 text-xs font-bold text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 transition cursor-pointer"
                 >
-                  Ganti Persona ke Ini (RBAC)
+                  Ganti Persona (RBAC)
                 </button>
                 {(currentUser.role === 'super_admin' || currentUser.role === 'admin') && selectedEmployee.id !== currentUser.id && (
                   <button
@@ -459,11 +589,12 @@ export const EmployeeDirectory: React.FC = () => {
                 )}
               </div>
               <button
+                type="button"
                 onClick={() => {
                   startDirectMessage(selectedEmployee.id);
                   setSelectedEmployee(null);
                 }}
-                className="flex items-center gap-1.5 rounded-xl bg-red-600 px-4 py-2 text-xs font-bold text-white hover:bg-red-700 cursor-pointer"
+                className="flex items-center gap-1.5 rounded-xl bg-red-600 px-4 py-2 text-xs font-bold text-white hover:bg-red-700 transition shadow-md active:scale-95 cursor-pointer"
               >
                 <MessageSquare className="h-3.5 w-3.5" />
                 <span>Kirim Pesan Chat</span>
@@ -492,7 +623,7 @@ export const EmployeeDirectory: React.FC = () => {
             </div>
 
             <div className="rounded-2xl border border-slate-200 bg-slate-50/70 p-3.5 dark:border-slate-800 dark:bg-slate-800/50 flex items-center gap-3">
-              <img src={userToDelete.avatar} alt="" className="h-10 w-10 rounded-full object-cover ring-2 ring-slate-200 dark:ring-slate-700 shrink-0" />
+              <EmployeeAvatar emp={userToDelete} className="h-10 w-10 rounded-full object-cover ring-2 ring-slate-200 dark:ring-slate-700 shrink-0" />
               <div className="min-w-0 flex-1">
                 <span className="font-bold text-xs text-slate-900 dark:text-white block truncate">
                   {userToDelete.name}
@@ -540,3 +671,4 @@ export const EmployeeDirectory: React.FC = () => {
     </div>
   );
 };
+

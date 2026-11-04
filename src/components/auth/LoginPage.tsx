@@ -196,7 +196,7 @@ export const LoginPage: React.FC = () => {
   };
 
   return (
-    <div className="relative flex min-h-screen w-full items-center justify-center p-3 sm:p-6 lg:p-8 bg-[#181a20] text-slate-900 dark:text-slate-100 font-sans selection:bg-blue-500/30">
+    <div className="relative flex min-h-screen w-screen flex-col justify-between p-0 m-0 bg-[#181a20] text-slate-900 dark:text-slate-100 font-sans selection:bg-blue-500/30 overflow-x-hidden">
       {/* Top Floating Controls */}
       <div className="absolute top-4 right-4 sm:top-5 sm:right-6 z-30 flex items-center gap-2">
         <ThemeToggle size="md" />
@@ -287,7 +287,7 @@ export const LoginPage: React.FC = () => {
       </div>
 
       {/* DESKTOP SPLIT VIEW */}
-      <div className={`hidden lg:grid relative z-25 w-full max-w-5xl overflow-hidden bg-white dark:bg-slate-900 shadow-[0_25px_80px_rgba(0,0,0,0.45)] border border-slate-700/30 grid-cols-12 min-h-[660px] ${outerRadiusClass}`}>
+      <div className="hidden lg:grid relative z-25 w-full flex-1 grid-cols-12 min-h-screen bg-white dark:bg-slate-900 overflow-hidden shadow-none rounded-none border-0">
         {/* LEFT COLUMN: Modern Building Image Banner with Features */}
         <div className="col-span-7 relative p-10 flex flex-col justify-between overflow-hidden text-white min-h-full">
           <div
@@ -343,8 +343,8 @@ export const LoginPage: React.FC = () => {
         </div>
 
         {/* RIGHT COLUMN: Google SSO & Demo Mode */}
-        <div className="col-span-5 p-10 lg:p-12 flex flex-col justify-center bg-white dark:bg-slate-900 text-slate-900 dark:text-white">
-          <div className="max-w-sm w-full mx-auto space-y-6">
+        <div className="col-span-5 p-10 lg:p-12 flex flex-col justify-between bg-white dark:bg-slate-900 text-slate-900 dark:text-white">
+          <div className="max-w-sm w-full mx-auto my-auto space-y-6">
             <div className="space-y-3">
               {/* Integrated Sidebar Brand Header Matching Dashboard */}
               <div className="flex items-center gap-3 overflow-hidden">
@@ -439,8 +439,17 @@ export const LoginPage: React.FC = () => {
               </div>
             </div>
           </div>
+
+          <div className="pt-4 text-center text-[11px] text-slate-400 border-t border-slate-100 dark:border-slate-800">
+            Apps ini di kembangkan oleh Team Marketing Asli Rancangan Indonesia
+          </div>
         </div>
       </div>
+
+      {/* FOOTER BAR FOR MOBILE */}
+      <footer className="block lg:hidden w-full bg-slate-950 py-3 text-center text-[11px] text-slate-400 border-t border-slate-800 shrink-0 font-medium">
+        Apps ini di kembangkan oleh Team Marketing Asli Rancangan Indonesia
+      </footer>
 
       {/* Google Workspace Login Modal */}
       {showGoogleModal && (

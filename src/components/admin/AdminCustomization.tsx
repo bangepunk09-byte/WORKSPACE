@@ -881,6 +881,92 @@ export const AdminCustomization: React.FC = () => {
         </div>
       )}
 
+      {/* TAB: PERSETUJUAN AKUN (ACCESS APPROVAL) */}
+      {activeTab === 'approvals' && (
+        <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-xs dark:border-slate-800 dark:bg-slate-900 space-y-4">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 border-b border-slate-100 pb-3 dark:border-slate-800">
+            <div>
+              <h3 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                <ShieldCheck className="h-4 w-4 text-amber-500" />
+                <span>Persetujuan Akses Akun Eksternal & Registrasi</span>
+              </h3>
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                Verifikasi permohonan masuk dari akun Google dengan domain eksternal sebelum memberikan akses penuh ke workspace.
+              </p>
+            </div>
+            <span className="rounded-full bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-900 px-3 py-1 text-xs font-bold text-amber-700 dark:text-amber-300 self-start sm:self-auto">
+              {pendingApprovals.length} Permohonan Menunggu
+            </span>
+          </div>
+
+          {pendingApprovals.length === 0 ? (
+            <div className="rounded-2xl border border-dashed border-slate-200 dark:border-slate-800 p-8 text-center space-y-2">
+              <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-emerald-50 text-emerald-600 dark:bg-emerald-950/50 dark:text-emerald-400">
+                <CheckCircle2 className="h-6 w-6" />
+              </div>
+              <h4 className="text-xs font-bold text-slate-900 dark:text-white">
+                Tidak Ada Permohonan Akses Menunggu
+              </h4>
+              <p className="text-[11px] text-slate-400 max-w-sm mx-auto">
+                Semua pendaftaran dan permohonan akses dari pengguna eksternal telah disetujui atau ditolak.
+              </p>
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs">
+                <thead className="border-b border-slate-200 bg-slate-50 font-bold uppercase tracking-wider text-slate-500 dark:border-slate-800 dark:bg-slate-800">
+                  <tr>
+                    <th className="px-4 py-3">Pemohon</th>
+                    <th className="px-4 py-3">Email Kantor / Eksternal</th>
+                    <th className="px-4 py-3">Divisi Penugasan</th>
+                    <th className="px-4 py-3">Jabatan</th>
+                    <th className="px-4 py-3">Waktu Mengajukan</th>
+                    <th className="px-4 py-3 text-right">Aksi Persetujuan</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                  {pendingApprovals.map(req => (
+                    <tr key={req.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition">
+                      <td className="px-4 py-3 font-semibold text-slate-900 dark:text-white">
+                        <div className="flex items-center gap-2.5">
+                          <img src={req.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=256&auto=format&fit=crop&q=80'} alt="" className="h-8 w-8 rounded-full object-cover ring-1 ring-slate-200 dark:ring-slate-700" />
+                          <span>{req.name}</span>
+                        </div>
+                      </td>
+                      <td className="px-4 py-3 text-slate-600 dark:text-slate-300 font-mono text-[11px]">{req.email}</td>
+                      <td className="px-4 py-3 text-slate-600 dark:text-slate-300">{req.department}</td>
+                      <td className="px-4 py-3 text-slate-600 dark:text-slate-300">{req.position}</td>
+                      <td className="px-4 py-3 text-slate-400 text-[11px] font-mono">
+                        {new Date(req.requestedAt).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                      </td>
+                      <td className="px-4 py-3 text-right">
+                        <div className="flex items-center justify-end gap-2">
+                          <button
+                            type="button"
+                            onClick={() => rejectUserRegistration(req.id)}
+                            className="rounded-xl border border-rose-200 bg-rose-50 px-3 py-1.5 text-xs font-bold text-rose-700 hover:bg-rose-100 dark:border-rose-900/60 dark:bg-rose-950/40 dark:text-rose-300 transition cursor-pointer"
+                          >
+                            Tolak
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => approveUserRegistration(req.id)}
+                            className="flex items-center gap-1 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white px-3.5 py-1.5 text-xs font-bold shadow-xs transition active:scale-95 cursor-pointer"
+                          >
+                            <Check className="h-3.5 w-3.5" />
+                            <span>Setujui Akses</span>
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      )}
+
       {/* TAB 2: THEME & UI CUSTOMIZATION */}
       {activeTab === 'theme' && (
         <div className="space-y-6">

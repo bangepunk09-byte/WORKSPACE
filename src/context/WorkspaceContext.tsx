@@ -2346,6 +2346,7 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         login,
         logout,
         registerUser,
+        updateUser,
         isRightNotificationOpen,
         setIsRightNotificationOpen,
         toggleRightNotifications,
