@@ -35,7 +35,9 @@ import {
   LeaveApproval,
   LeaveType,
   DivisionTaskRequest,
-  PendingUserApproval
+  PendingUserApproval,
+  ManagedBrand,
+  Comment
 } from '../types';
 import {
   INITIAL_USERS,
@@ -50,7 +52,8 @@ import {
   INITIAL_WORKSPACE_INFO,
   INITIAL_BRAND_DRIVE_FOLDERS,
   INITIAL_DIVISIONS,
-  INITIAL_DIVISION_REQUESTS
+  INITIAL_DIVISION_REQUESTS,
+  INITIAL_MANAGED_BRANDS
 } from '../data/mockData';
 
 interface WorkspaceContextType {
@@ -83,6 +86,9 @@ interface WorkspaceContextType {
     avatar?: string;
   }) => User;
   updateUser: (userId: string, updates: Partial<User>) => void;
+  toggleUserActiveStatus: (userId: string) => void;
+  deleteUser: (userId: string) => void;
+  deleteMessage: (channelId: string, messageId: string) => void;
 
   // Right Side Notification Drawer
   isRightNotificationOpen: boolean;
@@ -93,8 +99,9 @@ interface WorkspaceContextType {
   posts: Post[];
   createPost: (post: Omit<Post, 'id' | 'likes' | 'bookmarks' | 'reposts' | 'comments' | 'createdAt'>) => void;
   likePost: (postId: string) => void;
+  reactToPost: (postId: string, emoji: string) => void;
   bookmarkPost: (postId: string) => void;
-  addComment: (postId: string, content: string) => void;
+  addComment: (postId: string, content: string, extra?: { parentId?: string; replyToName?: string; stickerUrl?: string; gifUrl?: string }) => void;
   votePoll: (postId: string, optionId: string) => void;
   togglePinPost: (postId: string) => void;
   deletePost: (postId: string) => void;
@@ -129,73 +136,66 @@ interface WorkspaceContextType {
   toggleHuddleMic: () => void;
   toggleHuddleVideo: () => void;
   toggleHuddleScreenShare: () => void;
+  toggleHuddleRecording: () => void;
   sendHuddleReaction: (emoji: string) => void;
 
-  // Chat & Group Settings
+  // Channels & Messages
   channels: Channel[];
   activeChannelId: string;
   setActiveChannelId: (id: string) => void;
   markChannelAsRead: (channelId: string) => void;
   messages: Record<string, ChatMessage[]>;
-  sendMessage: (
-    channelId: string,
-    content: string,
-    attachments?: Attachment[],
-    voiceNote?: { duration: string; url: string },
-    sticker?: StickerData,
-    extra?: { imageUrl?: string; attachedTask?: Task; leaveRequest?: LeaveRequest }
-  ) => void;
+  sendMessage: (channelId: string, content: string, attachments?: Attachment[], voiceNote?: any, sticker?: StickerData, extra?: any) => void;
   toggleReaction: (channelId: string, messageId: string, emoji: string) => void;
   createChannel: (name: string, description: string, isPrivate: boolean, memberIds: string[], dept?: string) => void;
-  updateChannelSettings: (channelId: string, updates: Partial<Channel>) => void;
+  updateChannelSettings: (channelId: string, settings: Partial<Channel>) => void;
   toggleStarChannel: (channelId: string) => void;
   togglePinMessage: (channelId: string, messageId: string) => void;
   toggleStarMessage: (channelId: string, messageId: string) => void;
   startDirectMessage: (targetUserId: string) => void;
 
-  // Leave Request & Approval
-  submitLeaveRequest: (
-    channelId: string,
-    leaveData: Omit<LeaveRequest, 'id' | 'createdAt' | 'bossApproval' | 'hrApproval' | 'overallStatus'>,
-    bossUser: User,
-    hrUser: User
-  ) => void;
-  processLeaveApproval: (
-    channelId: string,
-    messageId: string,
-    approverRole: 'boss' | 'hr',
-    decision: 'approved' | 'declined',
-    comment?: string
-  ) => void;
+  // Leave Requests & Approvals
+  submitLeaveRequest: (channelId: string, leaveData: any, bossUser: User, hrUser: User) => void;
+  processLeaveApproval: (channelId: string, messageId: string, role: 'boss' | 'hr', decision: 'approved' | 'declined', reason?: string) => void;
   leaveApprovalToast: string | null;
-  setLeaveApprovalToast: (msg: string | null) => void;
+  setLeaveApprovalToast: (toast: string | null) => void;
+
+  // Divisions
+  divisions: DivisionItem[];
+  addDivision: (divData: Omit<DivisionItem, 'id'>) => void;
+  deleteDivision: (id: string) => void;
+  updateDivision: (updated: DivisionItem) => void;
 
   // Meetings
   meetings: Meeting[];
-  createMeeting: (meeting: Omit<Meeting, 'id' | 'createdAt' | 'actionItems'> & { actionItemsText?: string[] }) => void;
-  updateMeeting: (meeting: Meeting) => void;
+  createMeeting: (meetingData: Omit<Meeting, 'id' | 'createdAt'>) => void;
+  updateMeeting: (updated: Meeting) => void;
   convertActionItemToTask: (meetingId: string, actionItemId: string) => void;
-  deleteMeeting: (meetingId: string) => void;
+  deleteMeeting: (id: string) => void;
 
   // Documents
   documents: DocumentItem[];
-  uploadDocument: (doc: Omit<DocumentItem, 'id' | 'createdAt' | 'updatedAt' | 'downloadsCount' | 'isStarred'>) => void;
-  deleteDocument: (documentId: string) => void;
-  toggleStarDoc: (documentId: string) => void;
-  recordDocDownload: (documentId: string) => void;
+  uploadDocument: (doc: Omit<DocumentItem, 'id' | 'uploadedAt' | 'downloads'>) => void;
+  deleteDocument: (id: string) => void;
+  toggleStarDoc: (id: string) => void;
+  recordDocDownload: (id: string) => void;
 
-  // Brand Google Drive Directory
+  // Brand Drive Folders
   brandDriveFolders: BrandDriveFolder[];
-  addBrandDriveFolder: (folder: Omit<BrandDriveFolder, 'id' | 'lastUpdated'>) => void;
+  addBrandDriveFolder: (folderData: Omit<BrandDriveFolder, 'id' | 'createdAt'>) => void;
   updateBrandDriveFolder: (folder: BrandDriveFolder) => void;
   deleteBrandDriveFolder: (id: string) => void;
   toggleStarBrandDriveFolder: (id: string) => void;
 
-  // Divisions Management
-  divisions: DivisionItem[];
-  addDivision: (division: Omit<DivisionItem, 'id'>) => void;
-  deleteDivision: (id: string) => void;
-  updateDivision: (division: DivisionItem) => void;
+  // Managed Brands (Label Management)
+  managedBrands: ManagedBrand[];
+  addManagedBrand: (brandData: Omit<ManagedBrand, 'id' | 'createdAt'>) => void;
+  updateManagedBrand: (id: string, updates: Partial<ManagedBrand>) => void;
+  deleteManagedBrand: (id: string) => void;
+  isBrandModalOpen: boolean;
+  setIsBrandModalOpen: (open: boolean) => void;
+  editingBrand: ManagedBrand | null;
+  setEditingBrand: (brand: ManagedBrand | null) => void;
 
   // Notifications
   notifications: NotificationItem[];
@@ -204,43 +204,34 @@ interface WorkspaceContextType {
   clearNotifications: () => void;
   unreadNotificationsCount: number;
 
-  // Directory & Admin
+  // User Management & Roles
   updateUserRole: (userId: string, role: UserRole) => void;
   updateUserStatus: (status: AvailabilityStatus) => void;
-  deleteUser: (userId: string) => void;
-  inviteUser: (userData: {
-    name: string;
-    email: string;
-    role: UserRole;
-    department: string;
-    position: string;
-    phone?: string;
-    location?: string;
-    avatar?: string;
-    bio?: string;
-    skills?: string[];
-  }) => User;
+  inviteUser: (userData: any) => User;
+
+  // Audit Logs & Search
   auditLogs: AuditLog[];
   addAuditLog: (action: string, resource: string, details: string) => void;
-
-  // Quick Search & Modals
   isQuickSearchOpen: boolean;
   setIsQuickSearchOpen: (open: boolean) => void;
   quickActionModal: string | null;
-  setQuickActionModal: (type: string | null) => void;
-  resetAllData: () => void;
-
-  // Modern Database Hub
+  setQuickActionModal: (modal: string | null) => void;
   isDbHubOpen: boolean;
   setIsDbHubOpen: (open: boolean) => void;
+  resetAllData: () => void;
   resetToInitialCorporateData: () => void;
-
-  // Audio Ringtones & Chimes
   isSoundMuted: boolean;
   toggleSound: () => void;
   setSoundMuted: (muted: boolean) => void;
-  playTestSound: (type: 'notification' | 'chat' | 'phone' | 'task') => void;
+  playTestSound: (type?: 'notification' | 'chat' | 'phone' | 'task') => void;
   addNotification: (notif: Omit<NotificationItem, 'id' | 'createdAt' | 'read'>) => void;
+
+
+
+
+
+
+
 
   // Cross-Division Task Requests (Permintaan Tugas Antar Divisi)
   divisionRequests: DivisionTaskRequest[];
@@ -250,14 +241,35 @@ interface WorkspaceContextType {
 
   // External Email Approvals
   pendingApprovals: PendingUserApproval[];
-  submitUserApprovalRequest: (data: { name: string; email: string; department: string; position: string; avatar?: string }) => void;
+  submitUserApprovalRequest: (data: {
+    name: string;
+    email: string;
+    password?: string;
+    department: string;
+    position: string;
+    avatar?: string;
+    nickname?: string;
+    birthDate?: string;
+    employeeId?: string;
+    location?: string;
+    employmentType?: 'Full-time' | 'Contract' | 'Probation' | 'Intern' | 'Freelance';
+    phone?: string;
+    gender?: 'Laki-laki' | 'Perempuan';
+    emergencyContact?: { name: string; relation: string; phone: string };
+    bankAccount?: { bankName: string; accountNumber: string; accountHolder: string };
+  }) => void;
   approveUserRegistration: (id: string) => void;
   rejectUserRegistration: (id: string) => void;
+  customStickers: { id: string; name: string; url: string }[];
+  addCustomSticker: (name: string, url: string) => void;
+  selectedDirectoryUserId: string | null;
+  setSelectedDirectoryUserId: (id: string | null) => void;
+  openEmployeeProfileByName: (name: string) => void;
 }
 
 const WorkspaceContext = createContext<WorkspaceContextType | undefined>(undefined);
 
-const LOCAL_STORAGE_PREFIX = 'WORKSPACE_APP_';
+const LOCAL_STORAGE_PREFIX = 'WORKSPACE_APP_PROD_EMPTY_';
 
 function loadFromStorage<T>(key: string, fallback: T): T {
   try {
@@ -277,11 +289,17 @@ function saveToStorage<T>(key: string, data: T): void {
 }
 
 export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [users, setUsers] = useState<User[]>(() => loadFromStorage('users', INITIAL_USERS));
+  const [users, setUsers] = useState<User[]>(() => {
+    const loaded = loadFromStorage<User[]>('users', INITIAL_USERS);
+    // Keep only super_admin accounts (usr_saeful, usr_epunk)
+    const superAdminOnly = loaded.filter(u => u.id === 'usr_saeful' || u.id === 'usr_epunk');
+    if (superAdminOnly.length === 0) return INITIAL_USERS;
+    return superAdminOnly.map(u => ({ ...u, role: 'super_admin' as const }));
+  });
   const [currentUser, setCurrentUserState] = useState<User>(() => {
     const saved = loadFromStorage<User | null>('currentUser', null);
-    if (saved) return saved;
-    return INITIAL_USERS[0]; // Saeful Rohman default
+    if (saved && (saved.id === 'usr_saeful' || saved.id === 'usr_epunk')) return { ...saved, role: 'super_admin' };
+    return INITIAL_USERS[0]; // Saeful Rohman
   });
 
   const [activeTab, setActiveTabState] = useState<string>(() => loadFromStorage('activeTab', 'dashboard'));
@@ -299,12 +317,12 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       }
     } catch {}
     const base = loadFromStorage('themeSettings', {
-      accentColor: 'navy-crimson' as const,
+      accentColor: 'royal-blue' as const,
       sidebarCollapsed: false,
       density: 'comfortable' as const,
       cardRadius: 'smooth' as const,
       bgPattern: 'clean' as const,
-      customPrimaryColor: '#0f172a',
+      customPrimaryColor: '#1e3a8a',
       customAccentColor: '#dc2626'
     });
     return {
@@ -317,8 +335,39 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
 
   const [posts, setPosts] = useState<Post[]>(() => loadFromStorage('posts', INITIAL_POSTS));
   const [tasks, setTasks] = useState<Task[]>(() => loadFromStorage('tasks', INITIAL_TASKS));
-  const [channels, setChannels] = useState<Channel[]>(() => loadFromStorage('channels', INITIAL_CHANNELS));
+  const [channels, setChannels] = useState<Channel[]>(() => {
+    const loaded = loadFromStorage<Channel[]>('channels', INITIAL_CHANNELS);
+    return loaded.map(c => ({
+      ...c,
+      unreadCount: 0,
+      memberIds: ['usr_saeful', 'usr_epunk'],
+      lastMessage: '',
+      lastMessageTime: ''
+    }));
+  });
   const [activeChannelId, setActiveChannelIdState] = useState<string>(() => loadFromStorage('activeChannelId', 'chn_general'));
+
+  const [customStickers, setCustomStickers] = useState<{ id: string; name: string; url: string }[]>(() =>
+    loadFromStorage('customStickers', [])
+  );
+  const [selectedDirectoryUserId, setSelectedDirectoryUserId] = useState<string | null>(null);
+
+  const addCustomSticker = (name: string, url: string) => {
+    const newStk = { id: 'stk_' + Date.now(), name, url };
+    setCustomStickers(prev => [newStk, ...prev]);
+  };
+
+  const openEmployeeProfileByName = (name: string) => {
+    const found = users.find(u => u.name.toLowerCase() === name.toLowerCase() || u.name.toLowerCase().includes(name.toLowerCase()));
+    if (found) {
+      setSelectedDirectoryUserId(found.id);
+      setActiveTab('directory');
+    }
+  };
+
+  useEffect(() => {
+    saveToStorage('customStickers', customStickers);
+  }, [customStickers]);
 
   const markChannelAsRead = (channelId: string) => {
     setChannels(prev =>
@@ -337,7 +386,13 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       markChannelAsRead(activeChannelId);
     }
   }, [activeChannelId]);
-  const [messages, setMessages] = useState<Record<string, ChatMessage[]>>(() => loadFromStorage('messages', INITIAL_MESSAGES));
+  const [messages, setMessages] = useState<Record<string, ChatMessage[]>>(() => {
+    const loaded = loadFromStorage<Record<string, ChatMessage[]>>('messages', INITIAL_MESSAGES);
+    if (loaded && (loaded.chn_tech || loaded.chn_general || loaded.dm_nadia)) {
+      return {};
+    }
+    return loaded || {};
+  });
   const [meetings, setMeetings] = useState<Meeting[]>(() => loadFromStorage('meetings', INITIAL_MEETINGS));
   const [documents, setDocuments] = useState<DocumentItem[]>(() => loadFromStorage('documents', INITIAL_DOCUMENTS));
   const [notifications, setNotifications] = useState<NotificationItem[]>(() => loadFromStorage('notifications', INITIAL_NOTIFICATIONS));
@@ -365,6 +420,17 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   // Brand Google Drive Master Directories
   const [brandDriveFolders, setBrandDriveFolders] = useState<BrandDriveFolder[]>(() => loadFromStorage('brandDriveFolders', INITIAL_BRAND_DRIVE_FOLDERS));
 
+  // Managed Brands (Label Management) State
+  const [managedBrands, setManagedBrands] = useState<ManagedBrand[]>(() =>
+    loadFromStorage('managedBrands', INITIAL_MANAGED_BRANDS)
+  );
+  const [isBrandModalOpen, setIsBrandModalOpen] = useState<boolean>(false);
+  const [editingBrand, setEditingBrand] = useState<ManagedBrand | null>(null);
+
+  useEffect(() => {
+    saveToStorage('managedBrands', managedBrands);
+  }, [managedBrands]);
+
   // Dynamic Divisions State
   const [divisions, setDivisions] = useState<DivisionItem[]>(() => loadFromStorage('divisions', INITIAL_DIVISIONS));
 
@@ -375,34 +441,47 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
 
   // External Email Approvals State
   const [pendingApprovals, setPendingApprovals] = useState<PendingUserApproval[]>(() =>
-    loadFromStorage('pendingApprovals', [
-      {
-        id: 'pa_1',
-        name: 'Rahmat Hidayat',
-        email: 'rahmat.external@gmail.com',
-        avatar: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=256&auto=format&fit=crop&q=80',
-        department: 'Technology & Engineering',
-        position: 'External QA Engineer',
-        requestedAt: new Date().toISOString(),
-        status: 'pending'
-      }
-    ])
+    loadFromStorage('pendingApprovals', [])
   );
 
   useEffect(() => {
     saveToStorage('pendingApprovals', pendingApprovals);
   }, [pendingApprovals]);
 
-  const submitUserApprovalRequest = (data: { name: string; email: string; department: string; position: string; avatar?: string }) => {
+  const submitUserApprovalRequest = (data: {
+    name: string;
+    email: string;
+    department: string;
+    position: string;
+    avatar?: string;
+    nickname?: string;
+    birthDate?: string;
+    employeeId?: string;
+    location?: string;
+    employmentType?: 'Full-time' | 'Contract' | 'Probation' | 'Intern' | 'Freelance';
+    phone?: string;
+    gender?: 'Laki-laki' | 'Perempuan';
+    emergencyContact?: { name: string; relation: string; phone: string };
+    bankAccount?: { bankName: string; accountNumber: string; accountHolder: string };
+  }) => {
     const newReq: PendingUserApproval = {
       id: 'pa_' + Date.now(),
       name: data.name,
       email: data.email,
-      avatar: data.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=256&auto=format&fit=crop&q=80',
+      avatar: data.avatar || '',
       department: data.department,
       position: data.position,
       requestedAt: new Date().toISOString(),
-      status: 'pending'
+      status: 'pending',
+      nickname: data.nickname,
+      birthDate: data.birthDate,
+      employeeId: data.employeeId,
+      location: data.location,
+      employmentType: data.employmentType,
+      phone: data.phone,
+      gender: data.gender,
+      emergencyContact: data.emergencyContact,
+      bankAccount: data.bankAccount
     };
     setPendingApprovals(prev => [newReq, ...prev]);
 
@@ -413,7 +492,7 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         id: 'notif_' + Date.now(),
         recipientId: superAdmin.id,
         senderName: data.name,
-        senderAvatar: data.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=256&auto=format&fit=crop&q=80',
+        senderAvatar: data.avatar || '',
         type: 'system',
         title: 'Permohonan Akses Akun Baru',
         message: `${data.name} (${data.email}) meminta akses ke workspace. Silakan setujui di Panel Admin.`,
@@ -433,18 +512,20 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       id: 'usr_ext_' + Date.now(),
       name: req.name,
       email: req.email,
-      avatar: req.avatar,
+      avatar: req.avatar || '',
       role: 'employee',
       department: req.department,
       position: req.position,
-      phone: '+62 812-' + Math.floor(1000 + Math.random() * 9000) + '-' + Math.floor(1000 + Math.random() * 9000),
-      location: 'Remote / External Hub',
+      phone: req.phone || '+62 812-' + Math.floor(1000 + Math.random() * 9000) + '-' + Math.floor(1000 + Math.random() * 9000),
+      location: req.location || 'Headquarters – Jakarta',
       status: 'online',
       joinedDate: new Date().toISOString().split('T')[0],
-      employeeId: 'EMP-' + Math.floor(2026000 + Math.random() * 9000),
-      employmentType: 'Contract',
-      gender: 'Laki-laki',
-      birthDate: '1993-05-14'
+      employeeId: req.employeeId || 'EMP-' + Math.floor(2026000 + Math.random() * 9000),
+      employmentType: req.employmentType || 'Contract',
+      gender: req.gender || 'Laki-laki',
+      birthDate: req.birthDate || '1995-01-01',
+      emergencyContact: req.emergencyContact,
+      bankAccount: req.bankAccount
     };
     setUsers(prev => [newUser, ...prev]);
     setPendingApprovals(prev => prev.filter(p => p.id !== id));
@@ -597,6 +678,19 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     root.style.setProperty('--app-font-size', activeFontSize);
     document.documentElement.style.fontSize = activeFontSize;
 
+    // 5 Varian Font Workspace (DM Sans, Helvetica, Segoe UI, Satoshi, Inter)
+    const FONT_FAMILIES: Record<string, string> = {
+      'dm-sans': "'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif",
+      'helvetica': "'Helvetica Neue', Helvetica, -apple-system, Arial, sans-serif",
+      'segoe-ui': "'Segoe UI', -apple-system, BlinkMacSystemFont, Roboto, sans-serif",
+      'satoshi': "'Satoshi', -apple-system, BlinkMacSystemFont, sans-serif",
+      'inter': "'Inter', -apple-system, BlinkMacSystemFont, sans-serif"
+    };
+    const activeFontFamily = FONT_FAMILIES[themeSettings.fontFamily || 'dm-sans'] || FONT_FAMILIES['dm-sans'];
+    root.style.setProperty('--font-sans', activeFontFamily);
+    document.documentElement.style.fontFamily = activeFontFamily;
+    document.body.style.fontFamily = activeFontFamily;
+
     // Dynamic Button Hover, Selector Active, and Icon Accent Colors
     if (themeSettings.buttonHoverColor) {
       root.style.setProperty('--btn-hover-color', themeSettings.buttonHoverColor);
@@ -608,13 +702,27 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     } else {
       root.style.removeProperty('--selector-active-color');
     }
-    if (themeSettings.iconAccentColor) {
-      root.style.setProperty('--icon-accent-color', themeSettings.iconAccentColor);
+    // Dynamic Background Solid and Gradient
+    if (themeSettings.customBgSolidColor) {
+      root.style.setProperty('--custom-bg-solid', themeSettings.customBgSolidColor);
     } else {
-      root.style.removeProperty('--icon-accent-color');
+      root.style.removeProperty('--custom-bg-solid');
+    }
+    if (themeSettings.customBgGradient) {
+      root.style.setProperty('--custom-bg-gradient', themeSettings.customBgGradient);
+    } else {
+      root.style.removeProperty('--custom-bg-gradient');
     }
 
-    const patternClasses = ['bg-pattern-clean', 'bg-pattern-dots', 'bg-pattern-mesh', 'bg-pattern-grid', 'bg-pattern-aurora'];
+    const patternClasses = [
+      'bg-pattern-clean',
+      'bg-pattern-dots',
+      'bg-pattern-mesh',
+      'bg-pattern-grid',
+      'bg-pattern-aurora',
+      'bg-pattern-solid',
+      'bg-pattern-gradient'
+    ];
     patternClasses.forEach(cls => {
       document.body.classList.remove(cls);
       document.documentElement.classList.remove(cls);
@@ -634,9 +742,12 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     themeSettings.chatBubbleColor,
     themeSettings.customChatBubbleColor,
     themeSettings.fontSize,
+    themeSettings.fontFamily,
     themeSettings.buttonHoverColor,
     themeSettings.selectorActiveColor,
-    themeSettings.iconAccentColor
+    themeSettings.iconAccentColor,
+    themeSettings.customBgSolidColor,
+    themeSettings.customBgGradient
   ]);
 
   const setThemeMode = (mode: 'light' | 'dark') => {
@@ -746,6 +857,47 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     );
   };
 
+  const reactToPost = (postId: string, emoji: string) => {
+    soundEffects.playEmojiPopSound();
+    setPosts(prev =>
+      prev.map(p => {
+        if (p.id !== postId) return p;
+        const currentReactions = p.reactions && p.reactions.length > 0 ? p.reactions : [
+          { emoji: '😍', userIds: p.likes.slice(0, 14) },
+          { emoji: '❤️', userIds: p.likes },
+          { emoji: '🔥', userIds: p.likes.slice(0, 35) },
+          { emoji: '⚡', userIds: p.likes.slice(0, 19) },
+          { emoji: '🤝', userIds: p.likes.slice(0, 22) }
+        ];
+
+        let found = false;
+        const updatedReactions = currentReactions.map(r => {
+          if (r.emoji === emoji) {
+            found = true;
+            const hasUser = r.userIds.includes(currentUser.id);
+            const newUserIds = hasUser
+              ? r.userIds.filter(id => id !== currentUser.id)
+              : [...r.userIds, currentUser.id];
+            return { ...r, userIds: newUserIds };
+          }
+          return r;
+        }).filter(r => r.userIds.length > 0);
+
+        if (!found) {
+          updatedReactions.push({ emoji, userIds: [currentUser.id] });
+        }
+
+        const totalLikes = updatedReactions.reduce((acc, r) => (r.emoji === '❤️' || r.emoji === '😍' ? acc + r.userIds.length : acc), 0);
+
+        return {
+          ...p,
+          reactions: updatedReactions,
+          likes: totalLikes > 0 ? Array.from(new Set([...p.likes, currentUser.id])) : p.likes
+        };
+      })
+    );
+  };
+
   const bookmarkPost = (postId: string) => {
     setPosts(prev =>
       prev.map(p => {
@@ -759,9 +911,13 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     );
   };
 
-  const addComment = (postId: string, content: string) => {
-    if (!content.trim()) return;
-    const commentObj = {
+  const addComment = (
+    postId: string,
+    content: string,
+    extra?: { parentId?: string; replyToName?: string; stickerUrl?: string; gifUrl?: string }
+  ) => {
+    if (!content.trim() && !extra?.stickerUrl && !extra?.gifUrl) return;
+    const commentObj: Comment = {
       id: 'comm_' + Date.now(),
       postId,
       authorId: currentUser.id,
@@ -770,7 +926,11 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       authorRole: currentUser.position,
       content,
       createdAt: new Date().toISOString(),
-      likes: []
+      likes: [],
+      parentId: extra?.parentId,
+      replyToName: extra?.replyToName,
+      stickerUrl: extra?.stickerUrl,
+      gifUrl: extra?.gifUrl
     };
     setPosts(prev =>
       prev.map(p => (p.id === postId ? { ...p, comments: [...p.comments, commentObj] } : p))
@@ -1234,51 +1394,96 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     }
   }, [tasks]);
 
-  // HUDDLE ACTIONS (Voice & Video)
+  // CALL ACTIONS (Private Call & Group Call)
   const startHuddle = (title: string, type: 'channel' | 'direct' | 'division', targetId: string, isVoiceOnly: boolean = false) => {
-    const otherUsers = users.filter(u => u.id !== currentUser.id).slice(0, 3);
-    const participants: HuddleParticipant[] = [
-      {
-        id: currentUser.id,
-        name: currentUser.name,
-        avatar: currentUser.avatar,
-        role: currentUser.position || currentUser.role,
-        isMuted: false,
-        isVideoOn: !isVoiceOnly,
-        isSpeaking: true,
-        isScreenSharing: false
-      },
-      ...otherUsers.map((u, i) => ({
-        id: u.id,
-        name: u.name,
-        avatar: u.avatar,
-        role: u.position || u.role,
-        isMuted: i > 0,
-        isVideoOn: !isVoiceOnly && i === 0,
-        isSpeaking: i === 0,
-        isScreenSharing: false
-      }))
-    ];
+    let participants: HuddleParticipant[] = [];
+
+    if (type === 'direct') {
+      // 1-on-1 Private Call: strictly ONLY 2 participants (currentUser + recipient)
+      const targetChannel = channels.find(c => c.id === targetId);
+      const recipientId = targetChannel?.otherUserId || targetId;
+      const otherUser = users.find(u => u.id === recipientId) || users.find(u => u.id !== currentUser.id);
+
+      participants = [
+        {
+          id: currentUser.id,
+          name: currentUser.name,
+          avatar: currentUser.avatar,
+          role: currentUser.position || currentUser.role,
+          isMuted: false,
+          isVideoOn: !isVoiceOnly,
+          isSpeaking: true,
+          isScreenSharing: false
+        }
+      ];
+
+      if (otherUser && otherUser.id !== currentUser.id) {
+        participants.push({
+          id: otherUser.id,
+          name: otherUser.name,
+          avatar: otherUser.avatar,
+          role: otherUser.position || otherUser.role,
+          isMuted: false,
+          isVideoOn: !isVoiceOnly,
+          isSpeaking: false,
+          isScreenSharing: false
+        });
+      }
+    } else {
+      // Group Call: channel / division members
+      const targetChannel = channels.find(c => c.id === targetId);
+      let groupMembers = targetChannel?.memberIds?.length
+        ? users.filter(u => targetChannel.memberIds.includes(u.id) && u.id !== currentUser.id)
+        : users.filter(u => u.id !== currentUser.id);
+
+      if (groupMembers.length === 0) {
+        groupMembers = users.filter(u => u.id !== currentUser.id).slice(0, 4);
+      }
+
+      participants = [
+        {
+          id: currentUser.id,
+          name: currentUser.name,
+          avatar: currentUser.avatar,
+          role: currentUser.position || currentUser.role,
+          isMuted: false,
+          isVideoOn: !isVoiceOnly,
+          isSpeaking: true,
+          isScreenSharing: false
+        },
+        ...groupMembers.slice(0, 5).map((u, i) => ({
+          id: u.id,
+          name: u.name,
+          avatar: u.avatar,
+          role: u.position || u.role,
+          isMuted: i > 0,
+          isVideoOn: !isVoiceOnly && i === 0,
+          isSpeaking: i === 0,
+          isScreenSharing: false
+        }))
+      ];
+    }
 
     setActiveHuddle({
-      id: 'hud_' + Date.now(),
+      id: 'call_' + Date.now(),
       title,
       type,
       targetId,
       startedAt: new Date().toISOString(),
       participants,
       isMinimized: false,
-      isVoiceOnly
+      isVoiceOnly,
+      isRecording: false
     });
 
     soundEffects.playPhoneRingSound(12);
-    addAuditLog('HUDDLE_START', 'Live Huddle', `Memulai huddle ${isVoiceOnly ? 'suara' : 'video'} di ${title}`);
+    addAuditLog('CALL_START', 'Komunikasi Terpadu', `Memulai ${type === 'direct' ? 'Private Call 1-on-1' : 'Group Call'} (${isVoiceOnly ? 'Suara' : 'Video HD'}) di ${title}`);
   };
 
   const endHuddle = () => {
     soundEffects.stopPhoneRingSound();
     setActiveHuddle(null);
-    addAuditLog('HUDDLE_END', 'Live Huddle', `Mengakhiri sesi huddle`);
+    addAuditLog('CALL_END', 'Komunikasi Terpadu', `Mengakhiri panggilan`);
   };
 
   const toggleHuddleMinimize = () => {
@@ -1317,6 +1522,16 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         participants: prev.participants.map(p =>
           p.id === currentUser.id ? { ...p, isScreenSharing: !p.isScreenSharing } : p
         )
+      };
+    });
+  };
+
+  const toggleHuddleRecording = () => {
+    setActiveHuddle(prev => {
+      if (!prev) return null;
+      return {
+        ...prev,
+        isRecording: !prev.isRecording
       };
     });
   };
@@ -1499,6 +1714,33 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       });
       return { ...prev, [channelId]: updatedList };
     });
+  };
+
+  const deleteMessage = (channelId: string, messageId: string) => {
+    setMessages(prev => {
+      const channelMsgs = prev[channelId] || [];
+      const updatedMsgs = channelMsgs.filter(m => m.id !== messageId);
+      
+      // Synchronize last message in channels list
+      setChannels(prevChans =>
+        prevChans.map(c => {
+          if (c.id !== channelId) return c;
+          const lastMsg = updatedMsgs.length > 0 ? updatedMsgs[updatedMsgs.length - 1] : null;
+          return {
+            ...c,
+            lastMessage: lastMsg
+              ? lastMsg.sticker
+                ? `✨ Stiker: ${lastMsg.sticker.text || lastMsg.sticker.emoji}`
+                : lastMsg.content || (lastMsg.voiceNote ? '🎤 Pesan suara' : '📎 Berkas lampiran')
+              : 'Belum ada percakapan',
+            lastMessageTime: lastMsg ? 'Baru saja' : ''
+          };
+        })
+      );
+
+      return { ...prev, [channelId]: updatedMsgs };
+    });
+    addAuditLog('CHAT_DELETE_MESSAGE', 'Pesan Chat', `Menghapus pesan (${messageId}) di channel ${channelId}`);
   };
 
   const createChannel = (name: string, description: string, isPrivate: boolean, memberIds: string[], dept?: string) => {
@@ -1966,6 +2208,36 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     );
   };
 
+  // MANAGED BRANDS (LABEL MANAGEMENT) ACTIONS
+  const addManagedBrand = (brandData: Omit<ManagedBrand, 'id' | 'createdAt'>) => {
+    const newBrand: ManagedBrand = {
+      ...brandData,
+      id: 'brand_' + Date.now(),
+      createdAt: new Date().toISOString().split('T')[0]
+    };
+    setManagedBrands(prev => [...prev, newBrand]);
+    addAuditLog('BRAND_ADD', 'Label Management', `Menambahkan label brand: "${newBrand.name}"`);
+    addNotification({
+      type: 'system',
+      title: 'Brand Baru Ditambahkan',
+      message: `Label brand ${newBrand.name} berhasil didaftarkan ke sistem.`,
+      recipientId: currentUser.id
+    });
+  };
+
+  const updateManagedBrand = (id: string, updates: Partial<ManagedBrand>) => {
+    setManagedBrands(prev =>
+      prev.map(b => (b.id === id ? { ...b, ...updates } : b))
+    );
+    addAuditLog('BRAND_UPDATE', 'Label Management', `Memperbarui konfigurasi label brand ${id}`);
+  };
+
+  const deleteManagedBrand = (id: string) => {
+    const target = managedBrands.find(b => b.id === id);
+    setManagedBrands(prev => prev.filter(b => b.id !== id));
+    addAuditLog('BRAND_DELETE', 'Label Management', `Menghapus label brand: "${target?.name || id}"`);
+  };
+
   // NOTIFICATION ACTIONS
   const markAsRead = (id: string) => {
     setNotifications(prev =>
@@ -2005,8 +2277,8 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     setIsSoundMuted(muted);
   };
 
-  const playTestSound = (type: 'notification' | 'chat' | 'phone' | 'task') => {
-    switch (type) {
+  const playTestSound = (type?: 'notification' | 'chat' | 'phone' | 'task') => {
+    switch (type || 'notification') {
       case 'notification':
         soundEffects.playNotificationSound();
         break;
@@ -2152,13 +2424,20 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       const targetUser = prev.find(u => u.id === userId);
       if (!targetUser) return prev;
 
+      // Aturan Sakral: Titel Super Admin tidak boleh kosong.
+      // Jika tinggal 1 Super Admin, role tidak bisa diubah/diturunkan.
+      const currentSuperAdmins = prev.filter(u => u.role === 'super_admin');
+      if (targetUser.role === 'super_admin' && currentSuperAdmins.length <= 1 && role !== 'super_admin') {
+        alert('Aturan Sakral: Titel Super Admin tidak boleh kosong! Tinggal 1 akun Super Admin, role tidak dapat diturunkan.');
+        return prev;
+      }
+
       let updatedUsers = prev.map(u => (u.id === userId ? { ...u, role } : u));
 
       // 2. Rule: Super Admin harus selalu ada.
       // Jika seandainya superadmin ganti/diturunkan, otomatis title super admin bakal pindah ke akun yang paling lama bergabung.
       const hasSuperAdmin = updatedUsers.some(u => u.role === 'super_admin');
       if (!hasSuperAdmin) {
-        // Find the oldest registered account among remaining users (sorted by joinedDate ascending)
         const candidates = updatedUsers.filter(u => u.id !== userId);
         const pool = candidates.length > 0 ? candidates : updatedUsers;
         const sortedOldest = [...pool].sort((a, b) => {
@@ -2201,17 +2480,52 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   };
 
   const updateUser = (userId: string, updates: Partial<User>) => {
-    setUsers(prev => prev.map(u => u.id === userId ? { ...u, ...updates } : u));
+    // Aturan Sakral: Yang bisa edit data/foto diri karyawan hanya karyawan itu sendiri!
+    if (currentUser.id !== userId) {
+      alert('Aturan Sakral: Data diri dan foto pribadi karyawan hanya dapat diubah oleh pemilik akun bersangkutan!');
+      return;
+    }
+
+    setUsers(prev => prev.map(u => (u.id === userId ? { ...u, ...updates } : u)));
     if (currentUser.id === userId) {
       setCurrentUserState(prev => ({ ...prev, ...updates }));
     }
-    addAuditLog('USER_UPDATE', 'Manajemen Personel', `Memperbarui profil personel ID: ${userId}`);
+    addAuditLog('USER_UPDATE', 'Profil Karyawan', `Memperbarui data pribadi/foto profil karyawan ${userId}`);
   };
+
+  const toggleUserActiveStatus = (userId: string) => {
+    const targetUser = users.find(u => u.id === userId);
+    if (!targetUser) return;
+
+    // Aturan Sakral: Titel Super Admin tidak boleh kosong!
+    const activeSuperAdmins = users.filter(u => u.role === 'super_admin' && !u.isDeactivated);
+    if (targetUser.role === 'super_admin' && !targetUser.isDeactivated && activeSuperAdmins.length <= 1) {
+      alert('Aturan Sakral: Titel Super Admin tidak meperbolehkan Super Admin kosong! Akun Super Admin terakhir tidak dapat dinonaktifkan.');
+      return;
+    }
+
+    const nextStatus = !targetUser.isDeactivated;
+    setUsers(prev => prev.map(u => (u.id === userId ? { ...u, isDeactivated: nextStatus } : u)));
+    addAuditLog(
+      'USER_TOGGLE_ACTIVE',
+      'Admin RBAC',
+      `Mengubah status akun ${targetUser.name} (${targetUser.email}) menjadi ${nextStatus ? 'Nonaktif' : 'Aktif'}`
+    );
+  };
+
+
 
   const deleteUser = (userId: string) => {
     // 1. Minimum user safety: cannot delete if only 1 user left
     if (users.length <= 1) {
       console.warn('Tidak dapat menghapus personel terakhir di sistem.');
+      return;
+    }
+
+    const targetUser = users.find(u => u.id === userId);
+    const superAdminCount = users.filter(u => u.role === 'super_admin').length;
+    if (targetUser?.role === 'super_admin' && superAdminCount <= 1) {
+      alert('Aturan Sakral: Titel Super Admin tidak boleh kosong! Akun Super Admin terakhir tidak dapat dihapus.');
       return;
     }
 
@@ -2221,8 +2535,6 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
 
       let remainingUsers = prev.filter(u => u.id !== userId);
 
-      // Rule: Super Admin HARUS SELALU ADA.
-      // Jika akun Super Admin yang dihapus, otomatis dipindahkan ke personel yang paling lama bergabung
       const hasSuperAdmin = remainingUsers.some(u => u.role === 'super_admin');
       if (!hasSuperAdmin) {
         const sortedOldest = [...remainingUsers].sort((a, b) => {
@@ -2245,7 +2557,6 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         }
       }
 
-      // If the current logged in user deleted their own account, switch session
       if (currentUser.id === userId) {
         const nextActive = remainingUsers.find(u => u.role === 'super_admin') || remainingUsers[0];
         setCurrentUserState(nextActive);
@@ -2305,10 +2616,6 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
 
     addAuditLog('USER_INVITE', 'Manajemen Personel', `Mendaftarkan personel baru: ${newUser.name} (${newUser.position} - ${newUser.department})`);
 
-    try {
-      confetti({ particleCount: 50, spread: 60, origin: { y: 0.6 } });
-    } catch {}
-
     return newUser;
   };
 
@@ -2353,6 +2660,7 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         posts,
         createPost,
         likePost,
+        reactToPost,
         bookmarkPost,
         addComment,
         votePoll,
@@ -2385,6 +2693,7 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         toggleHuddleMic,
         toggleHuddleVideo,
         toggleHuddleScreenShare,
+        toggleHuddleRecording,
         sendHuddleReaction,
         channels,
         activeChannelId,
@@ -2398,6 +2707,7 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         toggleStarChannel,
         togglePinMessage,
         toggleStarMessage,
+        deleteMessage,
         startDirectMessage,
         submitLeaveRequest,
         processLeaveApproval,
@@ -2418,6 +2728,14 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         updateBrandDriveFolder,
         deleteBrandDriveFolder,
         toggleStarBrandDriveFolder,
+        managedBrands,
+        addManagedBrand,
+        updateManagedBrand,
+        deleteManagedBrand,
+        isBrandModalOpen,
+        setIsBrandModalOpen,
+        editingBrand,
+        setEditingBrand,
         divisions,
         addDivision,
         deleteDivision,
@@ -2429,6 +2747,7 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         unreadNotificationsCount,
         updateUserRole,
         updateUserStatus,
+        toggleUserActiveStatus,
         deleteUser,
         inviteUser,
         auditLogs,
@@ -2453,7 +2772,12 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         pendingApprovals,
         submitUserApprovalRequest,
         approveUserRegistration,
-        rejectUserRegistration
+        rejectUserRegistration,
+        customStickers,
+        addCustomSticker,
+        selectedDirectoryUserId,
+        setSelectedDirectoryUserId,
+        openEmployeeProfileByName
       }}
     >
       {children}

@@ -48,7 +48,11 @@ export const UploadDocModal: React.FC<{ onClose: () => void }> = ({ onClose }) =
       uploaderName: currentUser.name,
       uploaderAvatar: currentUser.avatar,
       tags: tagsInput.split(',').map(t => t.trim()).filter(Boolean),
-      contentPreview: `${title}\nDokumen resmi perusahaan disahkan pada ${new Date().toISOString().split('T')[0]}.\nDeskripsi: ${description}`
+      contentPreview: `${title}\nDokumen resmi perusahaan disahkan pada ${new Date().toISOString().split('T')[0]}.\nDeskripsi: ${description}`,
+      isStarred: false,
+      downloadsCount: 0,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
     });
 
     onClose();

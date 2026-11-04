@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Kanban,
   List,
@@ -99,7 +99,9 @@ export const TaskManagement: React.FC = () => {
     channels,
     addAuditLog,
     archiveTask,
-    unarchiveTask
+    unarchiveTask,
+    managedBrands,
+    setIsBrandModalOpen
   } = useWorkspace();
 
   const isSuperAdmin = currentUser.role === 'super_admin';
@@ -121,6 +123,7 @@ export const TaskManagement: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [priorityFilter, setPriorityFilter] = useState<string>('all');
   const [assigneeFilter, setAssigneeFilter] = useState<string>('all');
+  const [brandFilter, setBrandFilter] = useState<string>('all');
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [showArchivedModal, setShowArchivedModal] = useState(false);
   const [mobileStageFilter, setMobileStageFilter] = useState<string>('all');
@@ -195,18 +198,51 @@ export const TaskManagement: React.FC = () => {
     return t.groupId === activeGroupId || t.assigneeDept === TASK_GROUPS.find(g => g.id === activeGroupId)?.departmentMatch;
   });
 
+  // Support ESC key to close task detail or approval modal
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setSelectedTask(null);
+        setApprovalModalTask(null);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
+
+  // Brand lookup helper with logo & color
+  const getBrandInfo = (brandName?: string, brandId?: string, cachedLogo?: string, cachedColor?: string) => {
+    const found = managedBrands.find(
+      b => (brandId && b.id === brandId) || (brandName && b.name.toLowerCase() === brandName.toLowerCase())
+    );
+    if (found) return found;
+    return {
+      id: brandId || 'custom',
+      name: brandName || 'Asli RI',
+      logo: cachedLogo || '',
+      color: cachedColor || '#dc2626',
+      category: 'General Client'
+    };
+  };
+
   // Filter tasks based on search & selectors
   const filteredTasks = groupFilteredTasks.filter(t => {
     if (priorityFilter !== 'all' && t.priority !== priorityFilter) return false;
     if (assigneeFilter === 'mine' && t.assigneeId !== currentUser.id) return false;
     if (assigneeFilter !== 'all' && assigneeFilter !== 'mine' && t.assigneeId !== assigneeFilter) return false;
+    if (brandFilter !== 'all') {
+      const bName = (t.brand || 'Asli RI').toLowerCase();
+      const bFilter = brandFilter.toLowerCase();
+      if (bName !== bFilter && t.brandId !== brandFilter) return false;
+    }
 
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase();
       const matchTitle = t.title.toLowerCase().includes(q);
-      const matchProject = t.project.toLowerCase().includes(q);
+      const matchBrand = (t.brand || '').toLowerCase().includes(q);
+      const matchProject = (t.project || '').toLowerCase().includes(q);
       const matchAssignee = t.assigneeName.toLowerCase().includes(q);
-      return matchTitle || matchProject || matchAssignee;
+      return matchTitle || matchBrand || matchProject || matchAssignee;
     }
     return true;
   });
@@ -578,13 +614,23 @@ export const TaskManagement: React.FC = () => {
               {/* Project title with dropdown like 'Movadex Project v' */}
               <div className="flex items-center gap-2">
                 <div className="flex items-center gap-2 text-lg sm:text-xl font-extrabold text-slate-900 dark:text-white">
-                  <span>{activeGroupId === 'all' ? 'Movadex Unified Project' : (TASK_GROUPS.find(g => g.id === activeGroupId)?.name || 'Movadex Project')}</span>
+                  <span>{activeGroupId === 'all' ? 'Semua Divisi' : (TASK_GROUPS.find(g => g.id === activeGroupId)?.name || 'Divisi Proyek')}</span>
                   <ChevronDown className="h-4 w-4 text-slate-400" />
                 </div>
               </div>
 
-              {/* Members Avatar Stack + Add Task + Add Member Button */}
-              <div className="flex items-center gap-2.5 self-start sm:self-auto">
+              {/* Members Avatar Stack + Add Task + Add Member Button + Kelola Brand */}
+              <div className="flex items-center gap-2 self-start sm:self-auto flex-wrap">
+                <button
+                  type="button"
+                  onClick={() => setIsBrandModalOpen(true)}
+                  className="flex items-center gap-1.5 rounded-full border border-red-200/90 bg-red-50/80 hover:bg-red-100/80 px-3 py-1.5 text-xs font-bold text-red-700 dark:border-red-900/60 dark:bg-red-950/40 dark:text-red-300 shadow-2xs transition cursor-pointer"
+                  title="Kelola daftar brand, pasang logo kustom, dan atur warna brand"
+                >
+                  <Building2 className="h-3.5 w-3.5 text-red-600 dark:text-red-400" />
+                  <span>Kelola Brand ({managedBrands.length})</span>
+                </button>
+
                 <button
                   type="button"
                   onClick={() => setQuickActionModal('task')}
@@ -702,6 +748,23 @@ export const TaskManagement: React.FC = () => {
                     <Layers className="h-3.5 w-3.5" />
                     <span>Overview</span>
                   </button>
+                </div>
+
+                {/* Brand filter dropdown */}
+                <div className="relative">
+                  <select
+                    value={brandFilter}
+                    onChange={e => setBrandFilter(e.target.value)}
+                    className="appearance-none rounded-2xl border border-slate-200/90 bg-slate-50/80 pl-3 pr-8 py-2 text-xs font-bold text-slate-700 focus:border-red-500 focus:outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 shadow-2xs cursor-pointer"
+                  >
+                    <option value="all">Semua Brand ({managedBrands.length})</option>
+                    {managedBrands.map(b => (
+                      <option key={b.id} value={b.name}>
+                        {b.name}
+                      </option>
+                    ))}
+                  </select>
+                  <ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400" />
                 </div>
 
                 {/* Filter dropdown "All tasks v" */}
@@ -914,11 +977,45 @@ export const TaskManagement: React.FC = () => {
                                     : 'bg-white shadow-xs border-white/90 hover:border-slate-200 dark:hover:border-slate-700'
                                 }`}
                               >
-                                {/* Top Category Tag & Project */}
+                                {/* Top Category Tag: Brand Badge & Requestor */}
                                 <div className="flex items-center justify-between mb-2">
-                                  <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500 truncate max-w-[170px]">
-                                    {task.project}
-                                  </span>
+                                  <div className="flex items-center gap-1.5 min-w-0">
+                                    {(() => {
+                                      const brandInfo = getBrandInfo(task.brand, task.brandId, task.brandLogo, task.brandColor);
+                                      return (
+                                        <span
+                                          className="inline-flex items-center gap-1.5 rounded-lg border px-2 py-0.5 text-[10px] font-extrabold truncate shadow-2xs"
+                                          style={{
+                                            borderColor: `${brandInfo.color}35`,
+                                            backgroundColor: `${brandInfo.color}15`,
+                                            color: brandInfo.color
+                                          }}
+                                        >
+                                          {brandInfo.logo ? (
+                                            <img
+                                              src={brandInfo.logo}
+                                              alt={brandInfo.name}
+                                              className="h-3.5 w-3.5 rounded-full object-cover shrink-0 ring-1 ring-black/10"
+                                            />
+                                          ) : (
+                                            <span
+                                              className="h-2 w-2 rounded-full shrink-0"
+                                              style={{ backgroundColor: brandInfo.color }}
+                                            />
+                                          )}
+                                          <span className="truncate">{brandInfo.name}</span>
+                                        </span>
+                                      );
+                                    })()}
+                                    {(task.requestorName || task.reporterName) && (
+                                      <span
+                                        className="text-[10px] text-slate-400 dark:text-slate-500 truncate max-w-[110px]"
+                                        title={`Requestor: ${task.requestorName || task.reporterName}`}
+                                      >
+                                        Oleh: {(task.requestorName || task.reporterName).split(' ')[0]}
+                                      </span>
+                                    )}
+                                  </div>
                                   <span className={`h-2 w-2 rounded-full ${style.accentDot}`} />
                                 </div>
 
@@ -949,14 +1046,33 @@ export const TaskManagement: React.FC = () => {
                                   </div>
                                 </div>
 
-                                {/* Middle Row: Assignee Avatar + Due Time + Blue Checkmark Circle */}
+                                {/* Middle Row: Multi-Assignee Avatars + Due Time + Blue Checkmark Circle */}
                                 <div className="flex items-center justify-between mb-3.5">
                                   <div className="flex items-center gap-2 min-w-0">
-                                    <img
-                                      src={task.assigneeAvatar}
-                                      alt={task.assigneeName}
-                                      className="h-6 w-6 rounded-full object-cover ring-2 ring-slate-100 dark:ring-slate-700 shrink-0"
-                                    />
+                                    {task.assignees && task.assignees.length > 1 ? (
+                                      <div className="flex items-center -space-x-1.5 shrink-0" title={`Assignees: ${task.assignees.map(a => a.name).join(', ')}`}>
+                                        {task.assignees.slice(0, 3).map((a, idx) => (
+                                          <img
+                                            key={a.id || idx}
+                                            src={a.avatar}
+                                            alt={a.name}
+                                            className="h-6 w-6 rounded-full object-cover ring-2 ring-white dark:ring-slate-900"
+                                          />
+                                        ))}
+                                        {task.assignees.length > 3 && (
+                                          <span className="flex h-5 w-5 items-center justify-center rounded-full bg-slate-200 dark:bg-slate-700 text-[9px] font-bold text-slate-600 dark:text-slate-300 ring-2 ring-white dark:ring-slate-900">
+                                            +{task.assignees.length - 3}
+                                          </span>
+                                        )}
+                                      </div>
+                                    ) : (
+                                      <img
+                                        src={task.assigneeAvatar}
+                                        alt={task.assigneeName}
+                                        title={task.assigneeName}
+                                        className="h-6 w-6 rounded-full object-cover ring-2 ring-slate-100 dark:ring-slate-700 shrink-0"
+                                      />
+                                    )}
                                     <span className="text-[11px] font-semibold text-slate-600 dark:text-slate-400 truncate">
                                       {formatDueDisplay(task.deadline)}
                                     </span>
@@ -1198,8 +1314,41 @@ export const TaskManagement: React.FC = () => {
                             </div>
                           </td>
                           <td className="px-4 py-3 text-slate-500">
-                            <div>{t.project}</div>
-                            <div className="text-[10px] text-slate-400">{t.groupName || t.assigneeDept}</div>
+                            <div className="flex items-center gap-1.5">
+                              {(() => {
+                                const bInfo = getBrandInfo(t.brand, t.brandId, t.brandLogo, t.brandColor);
+                                return (
+                                  <span
+                                    className="inline-flex items-center gap-1.5 rounded-md border px-1.5 py-0.5 text-[10px] font-extrabold truncate"
+                                    style={{
+                                      borderColor: `${bInfo.color}35`,
+                                      backgroundColor: `${bInfo.color}15`,
+                                      color: bInfo.color
+                                    }}
+                                  >
+                                    {bInfo.logo ? (
+                                      <img
+                                        src={bInfo.logo}
+                                        alt={bInfo.name}
+                                        className="h-3 w-3 rounded-full object-cover shrink-0 ring-1 ring-black/10"
+                                      />
+                                    ) : (
+                                      <span
+                                        className="h-1.5 w-1.5 rounded-full shrink-0"
+                                        style={{ backgroundColor: bInfo.color }}
+                                      />
+                                    )}
+                                    <span>{bInfo.name}</span>
+                                  </span>
+                                );
+                              })()}
+                              {(t.requestorName || t.reporterName) && (
+                                <span className="text-[10px] text-slate-400">
+                                  Oleh: {(t.requestorName || t.reporterName).split(' ')[0]}
+                                </span>
+                              )}
+                            </div>
+                            <div className="text-[10px] text-slate-400 mt-0.5">{t.groupName || t.assigneeDept}</div>
                           </td>
                           <td className="px-4 py-3">
                             <select
@@ -1273,27 +1422,57 @@ export const TaskManagement: React.FC = () => {
 
       {/* 7. TASK DETAILS MODAL WITH CHECKPOINT TRACKER & REPORT/CHAT STREAM */}
       {selectedTask && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-xs">
-          <div className="w-full max-w-2xl rounded-3xl bg-white p-6 shadow-2xl dark:bg-slate-900 border border-slate-200 dark:border-slate-800 max-h-[90vh] overflow-y-auto animate-in fade-in zoom-in-95 duration-150">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 md:p-8 bg-slate-950/70 backdrop-blur-xs overflow-y-auto">
+          <div className="w-full max-w-2xl my-auto rounded-3xl bg-white p-6 shadow-2xl dark:bg-slate-900 border border-slate-200 dark:border-slate-800 max-h-[86vh] overflow-y-auto animate-in fade-in zoom-in-95 duration-150">
             {/* Modal Header */}
             <div className="flex items-start justify-between border-b border-slate-100 pb-4 dark:border-slate-800">
               <div>
-                <div className="flex items-center gap-2">
-                  <span className="text-[11px] font-bold text-red-600 uppercase tracking-wider">
-                    {selectedTask.project}
-                  </span>
+                <div className="flex items-center gap-2 flex-wrap">
+                  {(() => {
+                    const bInfo = getBrandInfo(selectedTask.brand, selectedTask.brandId, selectedTask.brandLogo, selectedTask.brandColor);
+                    return (
+                      <span
+                        className="inline-flex items-center gap-1.5 rounded-lg border px-2 py-0.5 text-xs font-extrabold truncate"
+                        style={{
+                          borderColor: `${bInfo.color}35`,
+                          backgroundColor: `${bInfo.color}15`,
+                          color: bInfo.color
+                        }}
+                      >
+                        {bInfo.logo ? (
+                          <img
+                            src={bInfo.logo}
+                            alt={bInfo.name}
+                            className="h-3.5 w-3.5 rounded-full object-cover shrink-0 ring-1 ring-black/10"
+                          />
+                        ) : (
+                          <span
+                            className="h-2 w-2 rounded-full shrink-0"
+                            style={{ backgroundColor: bInfo.color }}
+                          />
+                        )}
+                        <span>{bInfo.name}</span>
+                      </span>
+                    );
+                  })()}
+                  {(selectedTask.requestorName || selectedTask.reporterName) && (
+                    <span className="text-xs text-slate-500 font-semibold">
+                      Requestor: {selectedTask.requestorName || selectedTask.reporterName}
+                    </span>
+                  )}
                   <span className="text-slate-300 dark:text-slate-700">•</span>
                   <span className="text-[11px] text-slate-500 font-semibold">
                     Divisi: {selectedTask.groupName || selectedTask.assigneeDept}
                   </span>
                 </div>
-                <h2 className="text-base sm:text-lg font-bold text-slate-900 dark:text-white mt-1">
+                <h2 className="text-base sm:text-lg font-bold text-slate-900 dark:text-white mt-1.5">
                   {selectedTask.title}
                 </h2>
               </div>
               <button
                 onClick={() => setSelectedTask(null)}
-                className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800"
+                className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer"
+                title="Tutup (Esc)"
               >
                 <X className="h-5 w-5" />
               </button>
@@ -1339,11 +1518,25 @@ export const TaskManagement: React.FC = () => {
                 </div>
 
                 <div>
-                  <span className="text-[10px] text-slate-400 font-bold block">Assignee</span>
-                  <div className="flex items-center gap-1.5 mt-1 font-bold">
-                    <img src={selectedTask.assigneeAvatar} alt="" className="h-4 w-4 rounded-full object-cover" />
-                    <span className="truncate">{selectedTask.assigneeName.split(' ')[0]}</span>
-                  </div>
+                  <span className="text-[10px] text-slate-400 font-bold block">Penanggung Jawab</span>
+                  {selectedTask.assignees && selectedTask.assignees.length > 1 ? (
+                    <div className="flex items-center -space-x-1 mt-1">
+                      {selectedTask.assignees.map(a => (
+                        <img
+                          key={a.id}
+                          src={a.avatar}
+                          alt={a.name}
+                          title={a.name}
+                          className="h-5 w-5 rounded-full object-cover ring-1 ring-white dark:ring-slate-900"
+                        />
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-1.5 mt-1 font-bold">
+                      <img src={selectedTask.assigneeAvatar} alt="" className="h-4 w-4 rounded-full object-cover" />
+                      <span className="truncate">{selectedTask.assigneeName.split(' ')[0]}</span>
+                    </div>
+                  )}
                 </div>
               </div>
 

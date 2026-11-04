@@ -1,59 +1,82 @@
 import React, { useState } from 'react';
+import { useWorkspace } from '../../context/WorkspaceContext';
+import { modernDb } from '../../services/modernDatabase';
 import {
   ShieldCheck,
-  Palette,
-  Users,
-  Activity,
-  RotateCcw,
-  Sliders,
-  CheckCircle2,
-  Lock,
-  Eye,
-  Server,
-  FileCheck,
-  Check,
   Building2,
+  Users,
+  Palette,
+  Database,
+  Lock,
+  Check,
+  CheckCircle2,
+  Sliders,
   Upload,
-  Image as ImageIcon,
+  UserX,
+  UserCheck,
+  Trash2,
+  KeyRound,
+  AlertTriangle,
+  RefreshCw,
+  Layers,
   Sparkles,
-  Globe,
-  Tag,
+  Moon,
+  Sun,
+  Monitor,
+  Circle,
+  ArrowRight,
+  Eye,
+  ChevronRight,
+  History,
+  TrendingUp,
+  Activity,
+  Server,
+  Image as ImageIcon,
+  Zap,
+  Calendar,
   MessageSquare,
   Type,
-  Database,
-  Download,
+  RotateCcw,
   HardDrive,
   Cloud,
-  Zap,
-  RefreshCw,
-  Calendar
+  Download,
+  Tag,
+  Globe,
+  Edit2,
+  Plus
 } from 'lucide-react';
-import { useWorkspace } from '../../context/WorkspaceContext';
-import { UserRole, AccentColor, WorkspaceInfo } from '../../types';
-import { modernDb } from '../../services/modernDatabase';
+import { AccentColor, UserRole, WorkspaceInfo } from '../../types';
 
 export const AdminCustomization: React.FC = () => {
   const {
     currentUser,
     users,
-    updateUserRole,
-    themeSettings,
-    updateThemeSettings,
-    themeMode,
-    setThemeMode,
-    auditLogs,
-    resetAllData,
-    tasks,
-    documents,
     workspaceInfo,
     updateWorkspaceInfo,
+    updateUserRole,
+    toggleUserActiveStatus,
+    deleteUser,
+    themeSettings,
+    updateThemeSettings,
+    setThemeMode,
+    themeMode,
     setIsDbHubOpen,
     pendingApprovals,
     approveUserRegistration,
-    rejectUserRegistration
+    rejectUserRegistration,
+    auditLogs,
+    tasks,
+    documents,
+    resetAllData,
+    managedBrands,
+    addManagedBrand,
+    updateManagedBrand,
+    deleteManagedBrand,
+    setIsBrandModalOpen,
+    setEditingBrand
   } = useWorkspace();
 
-  const [activeTab, setActiveTab] = useState<'workspace' | 'roles' | 'approvals' | 'theme' | 'database' | 'audit' | 'metrics'>('workspace');
+  const [activeTab, setActiveTab] = useState<'workspace' | 'brands' | 'roles' | 'approvals' | 'theme' | 'database' | 'audit' | 'metrics'>('workspace');
   const [auditSearch, setAuditSearch] = useState('');
 
   const [wsName, setWsName] = useState(workspaceInfo.name);
@@ -120,6 +143,54 @@ export const AdminCustomization: React.FC = () => {
       hover: '#334155',
       selector: '#1e293b',
       icon: '#64748b'
+    },
+    {
+      name: 'Obsidian Sapphire',
+      hover: '#1e3a8a',
+      selector: '#09090b',
+      icon: '#3b82f6',
+      isGradient: true,
+      gradientCss: 'linear-gradient(135deg, #09090b 0%, #1e1b4b 50%, #1e3a8a 100%)'
+    },
+    {
+      name: 'Obsidian Emerald',
+      hover: '#047857',
+      selector: '#09090b',
+      icon: '#10b981',
+      isGradient: true,
+      gradientCss: 'linear-gradient(135deg, #09090b 0%, #064e3b 50%, #047857 100%)'
+    },
+    {
+      name: 'Obsidian Ruby',
+      hover: '#881337',
+      selector: '#09090b',
+      icon: '#f43f5e',
+      isGradient: true,
+      gradientCss: 'linear-gradient(135deg, #09090b 0%, #4c0519 50%, #881337 100%)'
+    },
+    {
+      name: 'Obsidian Amethyst',
+      hover: '#581c87',
+      selector: '#09090b',
+      icon: '#c084fc',
+      isGradient: true,
+      gradientCss: 'linear-gradient(135deg, #09090b 0%, #3b0764 50%, #581c87 100%)'
+    },
+    {
+      name: 'Obsidian Bronze',
+      hover: '#78350f',
+      selector: '#09090b',
+      icon: '#f59e0b',
+      isGradient: true,
+      gradientCss: 'linear-gradient(135deg, #09090b 0%, #451a03 50%, #78350f 100%)'
+    },
+    {
+      name: 'Obsidian Carbon',
+      hover: '#27272a',
+      selector: '#09090b',
+      icon: '#e4e4e7',
+      isGradient: true,
+      gradientCss: 'linear-gradient(135deg, #0f172a 0%, #18181b 50%, #27272a 100%)'
     }
   ];
 
@@ -127,6 +198,13 @@ export const AdminCustomization: React.FC = () => {
     setDraftButtonHoverColor(preset.hover);
     setDraftSelectorActiveColor(preset.selector);
     setDraftIconAccentColor(preset.icon);
+    updateThemeSettings({
+      buttonHoverColor: preset.hover,
+      selectorActiveColor: preset.selector,
+      iconAccentColor: preset.icon
+    });
+    setThemeAppliedSuccess(true);
+    setTimeout(() => setThemeAppliedSuccess(false), 2500);
   };
 
   const handleApplyInteractionTheme = () => {
@@ -243,89 +321,49 @@ export const AdminCustomization: React.FC = () => {
         {/* Tab switcher with spacious slider track */}
         <div className="mt-5 border-t border-slate-100 pt-3.5 dark:border-slate-800">
           <div className="flex items-center gap-2.5 overflow-x-auto tab-slider-scroll pt-1 pb-3.5 px-1">
-            <button
-              onClick={() => setActiveTab('workspace')}
-              className={`flex items-center gap-2 rounded-xl px-4 py-2.5 text-xs font-semibold whitespace-nowrap transition ${
-                activeTab === 'workspace'
-                  ? 'bg-slate-950 text-white dark:bg-white dark:text-slate-900 shadow-xs'
-                  : 'text-slate-600 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800'
-              }`}
-            >
-              <Building2 className="h-4 w-4 text-red-500" />
-              <span>Pengaturan Workspace (Nama & Logo)</span>
-            </button>
-
-            <button
-              onClick={() => setActiveTab('roles')}
-              className={`flex items-center gap-2 rounded-xl px-4 py-2.5 text-xs font-semibold whitespace-nowrap transition ${
-                activeTab === 'roles'
-                  ? 'bg-slate-950 text-white dark:bg-white dark:text-slate-900 shadow-xs'
-                  : 'text-slate-600 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800'
-              }`}
-            >
-              <Users className="h-4 w-4" />
-              <span>Manajemen Role (RBAC)</span>
-            </button>
-
-            <button
-              onClick={() => setActiveTab('approvals')}
-              className={`flex items-center gap-2 rounded-xl px-4 py-2.5 text-xs font-semibold whitespace-nowrap transition ${
-                activeTab === 'approvals'
-                  ? 'bg-slate-950 text-white dark:bg-white dark:text-slate-900 shadow-xs'
-                  : 'text-slate-600 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800'
-              }`}
-            >
-              <ShieldCheck className="h-4 w-4 text-amber-500" />
-              <span>Persetujuan Akun {pendingApprovals.length > 0 && `(${pendingApprovals.length})`}</span>
-            </button>
-
-            <button
-              onClick={() => setActiveTab('theme')}
-              className={`flex items-center gap-2 rounded-xl px-4 py-2.5 text-xs font-semibold whitespace-nowrap transition ${
-                activeTab === 'theme'
-                  ? 'bg-slate-950 text-white dark:bg-white dark:text-slate-900 shadow-xs'
-                  : 'text-slate-600 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800'
-              }`}
-            >
-              <Palette className="h-4 w-4" />
-              <span>Tema & Aksen UI</span>
-            </button>
-
-            <button
-              onClick={() => setActiveTab('database')}
-              className={`flex items-center gap-2 rounded-xl px-4 py-2.5 text-xs font-semibold whitespace-nowrap transition ${
-                activeTab === 'database'
-                  ? 'bg-slate-950 text-white dark:bg-white dark:text-slate-900 shadow-xs'
-                  : 'text-slate-600 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800'
-              }`}
-            >
-              <Database className="h-4 w-4 text-emerald-500" />
-              <span>Basis Data & Cloud Sync</span>
-            </button>
-
-            <button
-              onClick={() => setActiveTab('audit')}
-              className={`flex items-center gap-2 rounded-xl px-4 py-2.5 text-xs font-semibold whitespace-nowrap transition ${
-                activeTab === 'audit'
-                  ? 'bg-slate-950 text-white dark:bg-white dark:text-slate-900 shadow-xs'
-                  : 'text-slate-600 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800'
-              }`}
-            >
-              <Activity className="h-4 w-4" />
-              <span>Audit Log Sistem</span>
-            </button>
-
-            <button
-              onClick={() => setActiveTab('metrics')}
-              className={`flex items-center gap-2 rounded-xl px-4 py-2.5 text-xs font-semibold whitespace-nowrap transition ${
-                activeTab === 'metrics'
-                  ? 'bg-slate-950 text-white dark:bg-white dark:text-slate-900 shadow-xs'
-                  : 'text-slate-600 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800'
-              }`}
-            >
-              <Server className="h-4 w-4" />
-              <span>Metrik Penggunaan</span>
-            </button>
+            {[
+              { id: 'workspace', label: 'Pengaturan Workspace (Nama & Logo)', icon: Building2 },
+              { id: 'brands', label: `Label Brand & Klien (${managedBrands.length})`, icon: Tag },
+              { id: 'roles', label: 'Manajemen Role (RBAC)', icon: Users },
+              { id: 'approvals', label: `Persetujuan Akun ${pendingApprovals.length > 0 ? `(${pendingApprovals.length})` : ''}`, icon: ShieldCheck },
+              { id: 'theme', label: 'Tema & Aksen UI', icon: Palette },
+              { id: 'database', label: 'Basis Data & Cloud Sync', icon: Database },
+              { id: 'audit', label: 'Audit Log Sistem', icon: Activity },
+              { id: 'metrics', label: 'Metrik Penggunaan', icon: Server }
+            ].map(tabItem => {
+              const Icon = tabItem.icon;
+              const isActive = activeTab === tabItem.id;
+              return (
+                <button
+                  key={tabItem.id}
+                  onClick={() => setActiveTab(tabItem.id as any)}
+                  className={`flex items-center gap-2 rounded-xl px-4 py-2.5 text-xs font-semibold whitespace-nowrap transition cursor-pointer ${
+                    isActive
+                      ? 'theme-active-selector font-bold shadow-xs border'
+                      : 'interactive-hover-btn text-slate-600 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800'
+                  }`}
+                  style={
+                    isActive
+                      ? {
+                          backgroundColor: 'var(--selector-active-color, #0f172a)',
+                          borderColor: 'var(--selector-active-color, #0f172a)',
+                          color: '#ffffff'
+                        }
+                      : undefined
+                  }
+                >
+                  <Icon
+                    className="h-4 w-4"
+                    style={
+                      isActive
+                        ? { color: 'var(--icon-accent-color, #dc2626)' }
+                        : undefined
+                    }
+                  />
+                  <span>{tabItem.label}</span>
+                </button>
+              );
+            })}
           </div>
         </div>
       </div>
@@ -797,6 +835,196 @@ export const AdminCustomization: React.FC = () => {
         </div>
       )}
 
+      {/* TAB: BRAND & COMPANY LABEL MANAGEMENT */}
+      {activeTab === 'brands' && (
+        <div className="space-y-6 animate-in fade-in duration-200">
+          {/* Header Banner */}
+          <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-xs dark:border-slate-800 dark:bg-slate-900 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div className="space-y-1">
+              <div className="flex items-center gap-2.5">
+                <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-gradient-to-br from-red-600 to-rose-700 text-white shadow-md shadow-red-500/20">
+                  <Building2 className="h-5 w-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-extrabold text-slate-900 dark:text-white">
+                    Portofolio & Label Manajemen Brand Perusahaan
+                  </h3>
+                  <p className="text-xs text-slate-500 dark:text-slate-400">
+                    Kelola daftar brand/klien yang ditangani agensi, pasang logo brand kustom, dan atur aksen warna badge.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => {
+                setEditingBrand(null);
+                setIsBrandModalOpen(true);
+              }}
+              className="flex items-center justify-center gap-2 rounded-2xl bg-red-600 hover:bg-red-700 px-5 py-2.5 text-xs font-bold text-white shadow-sm transition active:scale-95 cursor-pointer self-start sm:self-auto shrink-0"
+            >
+              <Plus className="h-4 w-4" />
+              <span>Tambah Brand Baru</span>
+            </button>
+          </div>
+
+          {/* Quick Metrics */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div className="rounded-2xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900 shadow-2xs">
+              <span className="text-[11px] font-bold text-slate-400 block mb-1">Total Brand Terdaftar</span>
+              <div className="flex items-baseline gap-2">
+                <span className="text-2xl font-black text-slate-900 dark:text-white">{managedBrands.length}</span>
+                <span className="text-xs font-bold text-emerald-600">Aktif & Siap Digunakan</span>
+              </div>
+            </div>
+
+            <div className="rounded-2xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900 shadow-2xs">
+              <span className="text-[11px] font-bold text-slate-400 block mb-1">Total Tugas dengan Label Brand</span>
+              <div className="flex items-baseline gap-2">
+                <span className="text-2xl font-black text-slate-900 dark:text-white">
+                  {tasks.filter(t => t.brand || t.brandId).length}
+                </span>
+                <span className="text-xs font-bold text-blue-600">Tugas Terhubung</span>
+              </div>
+            </div>
+
+            <div className="rounded-2xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900 shadow-2xs">
+              <span className="text-[11px] font-bold text-slate-400 block mb-1">Brand Utama Sistem</span>
+              <div className="flex items-center gap-2">
+                <span className="h-3 w-3 rounded-full bg-red-600 shrink-0" />
+                <span className="text-base font-extrabold text-slate-900 dark:text-white truncate">
+                  {managedBrands.find(b => b.isDefault)?.name || managedBrands[0]?.name || 'Asli RI'}
+                </span>
+              </div>
+            </div>
+          </div>
+
+          {/* Brands Grid */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {managedBrands.map(brand => {
+              const brandTaskCount = tasks.filter(
+                t => t.brand === brand.name || t.brandId === brand.id
+              ).length;
+
+              return (
+                <div
+                  key={brand.id}
+                  className="rounded-3xl border border-slate-200 bg-white p-5 shadow-xs transition hover:shadow-md dark:border-slate-800 dark:bg-slate-900 flex flex-col justify-between space-y-4"
+                >
+                  <div className="space-y-3">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex items-center gap-3 min-w-0">
+                        {/* Brand Logo Display */}
+                        <div className="relative shrink-0">
+                          {brand.logo ? (
+                            <img
+                              src={brand.logo}
+                              alt={brand.name}
+                              className="h-12 w-12 rounded-2xl object-cover ring-2 ring-slate-100 dark:ring-slate-700 shadow-2xs"
+                            />
+                          ) : (
+                            <div
+                              className="flex h-12 w-12 items-center justify-center rounded-2xl text-base font-black text-white shadow-2xs"
+                              style={{ backgroundColor: brand.color }}
+                            >
+                              {brand.name.substring(0, 2).toUpperCase()}
+                            </div>
+                          )}
+                          <span
+                            className="absolute -bottom-1 -right-1 h-3.5 w-3.5 rounded-full ring-2 ring-white dark:ring-slate-900"
+                            style={{ backgroundColor: brand.color }}
+                            title={`Aksen: ${brand.color}`}
+                          />
+                        </div>
+
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <h4 className="text-sm font-extrabold text-slate-900 dark:text-white truncate">
+                              {brand.name}
+                            </h4>
+                            {brand.code && (
+                              <span className="rounded-md bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 text-[9px] font-black text-slate-600 dark:text-slate-300">
+                                {brand.code}
+                              </span>
+                            )}
+                            {brand.isDefault && (
+                              <span className="rounded-md bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-900/60 px-1.5 py-0.5 text-[9px] font-bold">
+                                Utama
+                              </span>
+                            )}
+                          </div>
+                          <span
+                            className="inline-block mt-1 rounded-md px-2 py-0.5 text-[10px] font-bold border"
+                            style={{
+                              color: brand.color,
+                              borderColor: `${brand.color}35`,
+                              backgroundColor: `${brand.color}15`
+                            }}
+                          >
+                            {brand.category || 'General Client'}
+                          </span>
+                        </div>
+                      </div>
+
+                      <span className="rounded-xl bg-slate-100 dark:bg-slate-800 px-2 py-1 text-[10px] font-extrabold text-slate-600 dark:text-slate-300 shrink-0">
+                        {brandTaskCount} Tugas
+                      </span>
+                    </div>
+
+                    {brand.description && (
+                      <p className="text-xs text-slate-600 dark:text-slate-400 line-clamp-2 leading-relaxed">
+                        {brand.description}
+                      </p>
+                    )}
+
+                    {brand.website && (
+                      <div className="flex items-center gap-1 text-[11px] text-slate-500 dark:text-slate-400 truncate">
+                        <Globe className="h-3 w-3 shrink-0" />
+                        <span className="truncate">{brand.website}</span>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="pt-3 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between gap-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setEditingBrand(brand);
+                        setIsBrandModalOpen(true);
+                      }}
+                      className="flex-1 flex items-center justify-center gap-1.5 rounded-xl border border-slate-200 bg-slate-50 hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-800 dark:hover:bg-slate-750 py-1.5 text-xs font-bold text-slate-700 dark:text-slate-200 transition cursor-pointer"
+                    >
+                      <Edit2 className="h-3.5 w-3.5 text-slate-500" />
+                      <span>Edit Logo & Brand</span>
+                    </button>
+
+                    {managedBrands.length > 1 && (
+                      <button
+                        type="button"
+                        onClick={() => deleteManagedBrand(brand.id)}
+                        className="rounded-xl border border-rose-200 bg-rose-50 hover:bg-rose-100 dark:border-rose-900/60 dark:bg-rose-950/40 p-1.5 text-xs font-bold text-rose-600 dark:text-rose-400 transition cursor-pointer"
+                        title="Hapus Brand"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </button>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Integration Banner */}
+          <div className="rounded-2xl border border-dashed border-red-200 bg-red-50/40 p-4 dark:border-red-900/50 dark:bg-red-950/20 flex items-center gap-3">
+            <span className="text-xl">💡</span>
+            <p className="text-xs text-slate-700 dark:text-slate-300 leading-relaxed font-medium">
+              <strong>Otomatis Tersinkronisasi:</strong> Seluruh brand yang Anda kelola di sini otomatis muncul di tombol formulir <em>Buat Tugas Baru</em>, badge kartu <em>Kanban Board</em>, tabel List View, serta filter kampanye lintas divisi.
+            </p>
+          </div>
+        </div>
+      )}
+
       {/* TAB 1: ROLE MANAGEMENT (RBAC) */}
       {activeTab === 'roles' && (
         <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-xs dark:border-slate-800 dark:bg-slate-900">
@@ -833,8 +1061,10 @@ export const AdminCustomization: React.FC = () => {
                   <th className="px-4 py-3">Karyawan</th>
                   <th className="px-4 py-3">Departemen</th>
                   <th className="px-4 py-3">Jabatan</th>
-                  <th className="px-4 py-3">Status Saat Ini</th>
+                  <th className="px-4 py-3">Status Akun</th>
+                  <th className="px-4 py-3">Presensi</th>
                   <th className="px-4 py-3">Tingkat Akses (Role)</th>
+                  <th className="px-4 py-3 text-right">Aksi Kelola</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
@@ -844,13 +1074,33 @@ export const AdminCustomization: React.FC = () => {
                       <div className="flex items-center gap-2">
                         <img src={u.avatar} alt="" className="h-7 w-7 rounded-full object-cover" />
                         <div>
-                          <div>{u.name}</div>
+                          <div className="flex items-center gap-1.5">
+                            <span>{u.name}</span>
+                            {u.id === currentUser.id && (
+                              <span className="rounded bg-blue-100 px-1 py-0.2 text-[9px] font-bold text-blue-700 dark:bg-blue-950 dark:text-blue-300">
+                                Anda
+                              </span>
+                            )}
+                          </div>
                           <div className="text-[10px] text-slate-400 font-normal">{u.email}</div>
                         </div>
                       </div>
                     </td>
                     <td className="px-4 py-3 text-slate-600 dark:text-slate-300">{u.department}</td>
                     <td className="px-4 py-3 text-slate-600 dark:text-slate-300">{u.position}</td>
+                    <td className="px-4 py-3">
+                      {u.isDeactivated ? (
+                        <span className="inline-flex items-center gap-1 rounded-full bg-rose-100 px-2.5 py-0.5 text-[10px] font-bold text-rose-700 dark:bg-rose-950 dark:text-rose-300">
+                          <span className="h-1.5 w-1.5 rounded-full bg-rose-500" />
+                          Nonaktif
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2.5 py-0.5 text-[10px] font-bold text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300">
+                          <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+                          Aktif
+                        </span>
+                      )}
+                    </td>
                     <td className="px-4 py-3">
                       <span className="flex items-center gap-1.5 font-medium">
                         <span className={`h-2 w-2 rounded-full ${u.status === 'online' ? 'bg-emerald-500' : 'bg-slate-400'}`} />
@@ -871,6 +1121,41 @@ export const AdminCustomization: React.FC = () => {
                         </select>
                       ) : (
                         <span className="text-[11px] text-slate-400">Terkunci (Super Admin Only)</span>
+                      )}
+                    </td>
+                    <td className="px-4 py-3 text-right">
+                      {isSuperAdmin ? (
+                        <div className="flex items-center justify-end gap-1.5">
+                          <button
+                            type="button"
+                            onClick={() => toggleUserActiveStatus(u.id)}
+                            className={`flex items-center gap-1 rounded-xl px-2.5 py-1 text-[11px] font-bold transition cursor-pointer ${
+                              u.isDeactivated
+                                ? 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100 dark:bg-emerald-950/50 dark:text-emerald-300'
+                                : 'bg-amber-50 text-amber-700 hover:bg-amber-100 dark:bg-amber-950/50 dark:text-amber-300'
+                            }`}
+                            title={u.isDeactivated ? 'Aktifkan Kembali Akun' : 'Nonaktifkan Akun'}
+                          >
+                            {u.isDeactivated ? <UserCheck className="h-3.5 w-3.5" /> : <UserX className="h-3.5 w-3.5" />}
+                            <span>{u.isDeactivated ? 'Aktifkan' : 'Nonaktifkan'}</span>
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => {
+                              if (window.confirm(`Apakah Anda yakin ingin menghapus permanen akun karyawan "${u.name}" (${u.email})?`)) {
+                                deleteUser(u.id);
+                              }
+                            }}
+                            className="flex items-center gap-1 rounded-xl bg-rose-50 px-2.5 py-1 text-[11px] font-bold text-rose-700 hover:bg-rose-100 dark:bg-rose-950/50 dark:text-rose-300 transition cursor-pointer"
+                            title="Hapus Karyawan"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                            <span>Hapus</span>
+                          </button>
+                        </div>
+                      ) : (
+                        <span className="text-[10px] text-slate-400">Tidak ada akses</span>
                       )}
                     </td>
                   </tr>
@@ -992,7 +1277,7 @@ export const AdminCustomization: React.FC = () => {
               <label className="text-xs font-bold text-slate-700 dark:text-slate-300 block mb-2">
                 Pilihan Palet Preset Cepat:
               </label>
-              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2">
+              <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-2">
                 {interactionPresets.map((ip, idx) => (
                   <button
                     key={idx}
@@ -1001,9 +1286,15 @@ export const AdminCustomization: React.FC = () => {
                     className="flex flex-col p-2.5 rounded-2xl border border-slate-200 dark:border-slate-700 hover:border-slate-400 bg-slate-50 dark:bg-slate-800/60 text-left transition cursor-pointer"
                   >
                     <div className="flex items-center gap-1.5 mb-2">
-                      <span className="h-3.5 w-3.5 rounded-full ring-1 ring-white" style={{ backgroundColor: ip.hover }} title="Hover Tombol" />
-                      <span className="h-3.5 w-3.5 rounded-full ring-1 ring-white" style={{ backgroundColor: ip.selector }} title="Selektor Aktif" />
-                      <span className="h-3.5 w-3.5 rounded-full ring-1 ring-white" style={{ backgroundColor: ip.icon }} title="Aksen Ikon" />
+                      {(ip as any).isGradient && (ip as any).gradientCss ? (
+                        <span className="h-4 w-full rounded-full ring-1 ring-white shadow-xs" style={{ background: (ip as any).gradientCss }} title="Modern Gradient Palette" />
+                      ) : (
+                        <>
+                          <span className="h-3.5 w-3.5 rounded-full ring-1 ring-white" style={{ backgroundColor: ip.hover }} title="Hover Tombol" />
+                          <span className="h-3.5 w-3.5 rounded-full ring-1 ring-white" style={{ backgroundColor: ip.selector }} title="Selektor Aktif" />
+                          <span className="h-3.5 w-3.5 rounded-full ring-1 ring-white" style={{ backgroundColor: ip.icon }} title="Aksen Ikon" />
+                        </>
+                      )}
                     </div>
                     <span className="text-[11px] font-bold text-slate-800 dark:text-slate-200 line-clamp-1">
                       {ip.name}
@@ -1025,13 +1316,19 @@ export const AdminCustomization: React.FC = () => {
                   <input
                     type="color"
                     value={draftButtonHoverColor}
-                    onChange={e => setDraftButtonHoverColor(e.target.value)}
+                    onChange={e => {
+                      setDraftButtonHoverColor(e.target.value);
+                      updateThemeSettings({ buttonHoverColor: e.target.value });
+                    }}
                     className="h-8 w-10 cursor-pointer rounded-lg border border-slate-300 dark:border-slate-600 bg-transparent p-0.5"
                   />
                   <input
                     type="text"
                     value={draftButtonHoverColor}
-                    onChange={e => setDraftButtonHoverColor(e.target.value)}
+                    onChange={e => {
+                      setDraftButtonHoverColor(e.target.value);
+                      updateThemeSettings({ buttonHoverColor: e.target.value });
+                    }}
                     className="w-full rounded-xl border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-mono dark:border-slate-700 dark:bg-slate-900"
                   />
                 </div>
@@ -1048,13 +1345,19 @@ export const AdminCustomization: React.FC = () => {
                   <input
                     type="color"
                     value={draftSelectorActiveColor}
-                    onChange={e => setDraftSelectorActiveColor(e.target.value)}
+                    onChange={e => {
+                      setDraftSelectorActiveColor(e.target.value);
+                      updateThemeSettings({ selectorActiveColor: e.target.value });
+                    }}
                     className="h-8 w-10 cursor-pointer rounded-lg border border-slate-300 dark:border-slate-600 bg-transparent p-0.5"
                   />
                   <input
                     type="text"
                     value={draftSelectorActiveColor}
-                    onChange={e => setDraftSelectorActiveColor(e.target.value)}
+                    onChange={e => {
+                      setDraftSelectorActiveColor(e.target.value);
+                      updateThemeSettings({ selectorActiveColor: e.target.value });
+                    }}
                     className="w-full rounded-xl border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-mono dark:border-slate-700 dark:bg-slate-900"
                   />
                 </div>
@@ -1071,13 +1374,19 @@ export const AdminCustomization: React.FC = () => {
                   <input
                     type="color"
                     value={draftIconAccentColor}
-                    onChange={e => setDraftIconAccentColor(e.target.value)}
+                    onChange={e => {
+                      setDraftIconAccentColor(e.target.value);
+                      updateThemeSettings({ iconAccentColor: e.target.value });
+                    }}
                     className="h-8 w-10 cursor-pointer rounded-lg border border-slate-300 dark:border-slate-600 bg-transparent p-0.5"
                   />
                   <input
                     type="text"
                     value={draftIconAccentColor}
-                    onChange={e => setDraftIconAccentColor(e.target.value)}
+                    onChange={e => {
+                      setDraftIconAccentColor(e.target.value);
+                      updateThemeSettings({ iconAccentColor: e.target.value });
+                    }}
                     className="w-full rounded-xl border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-mono dark:border-slate-700 dark:bg-slate-900"
                   />
                 </div>
@@ -1269,18 +1578,35 @@ export const AdminCustomization: React.FC = () => {
                 </label>
                 <div className="space-y-2">
                   {accentColorPresets.map(preset => {
-                    const isSelected = themeSettings.accentColor === preset.id && !themeSettings.customPrimaryColor;
+                    const isSelected = themeSettings.accentColor === preset.id;
+                    const PRESET_MAP: Record<string, { primary: string; accent: string }> = {
+                      'navy-crimson': { primary: '#0f172a', accent: '#dc2626' },
+                      'royal-blue': { primary: '#1e3a8a', accent: '#2563eb' },
+                      'emerald': { primary: '#064e3b', accent: '#059669' },
+                      'purple': { primary: '#3b0764', accent: '#9333ea' },
+                      'amber': { primary: '#451a03', accent: '#f59e0b' }
+                    };
+                    const p = PRESET_MAP[preset.id] || PRESET_MAP['navy-crimson'];
+
                     return (
                       <div
                         key={preset.id}
-                        onClick={() => updateThemeSettings({
-                          accentColor: preset.id,
-                          customPrimaryColor: undefined,
-                          customAccentColor: undefined
-                        })}
+                        onClick={() => {
+                          updateThemeSettings({
+                            accentColor: preset.id,
+                            customPrimaryColor: p.primary,
+                            customAccentColor: p.accent,
+                            iconAccentColor: p.accent,
+                            selectorActiveColor: p.primary,
+                            buttonHoverColor: p.primary
+                          });
+                          setDraftButtonHoverColor(p.primary);
+                          setDraftSelectorActiveColor(p.primary);
+                          setDraftIconAccentColor(p.accent);
+                        }}
                         className={`flex cursor-pointer items-center justify-between rounded-2xl border p-3 transition ${
                           isSelected
-                            ? 'border-blue-600 bg-blue-50/40 dark:border-blue-700 dark:bg-blue-950/30'
+                            ? 'border-blue-600 bg-blue-50/40 dark:border-blue-700 dark:bg-blue-950/30 ring-1 ring-blue-500'
                             : 'border-slate-200 hover:bg-slate-50 dark:border-slate-800 dark:hover:bg-slate-800/80'
                         }`}
                       >
@@ -1314,13 +1640,31 @@ export const AdminCustomization: React.FC = () => {
                       <input
                         type="color"
                         value={themeSettings.customPrimaryColor || '#0f172a'}
-                        onChange={e => updateThemeSettings({ customPrimaryColor: e.target.value })}
+                        onChange={e => {
+                          const val = e.target.value;
+                          updateThemeSettings({
+                            customPrimaryColor: val,
+                            selectorActiveColor: val,
+                            buttonHoverColor: val
+                          });
+                          setDraftSelectorActiveColor(val);
+                          setDraftButtonHoverColor(val);
+                        }}
                         className="h-8 w-10 cursor-pointer rounded-lg border border-slate-300 dark:border-slate-600 bg-transparent p-0.5"
                       />
                       <input
                         type="text"
                         value={themeSettings.customPrimaryColor || '#0f172a'}
-                        onChange={e => updateThemeSettings({ customPrimaryColor: e.target.value })}
+                        onChange={e => {
+                          const val = e.target.value;
+                          updateThemeSettings({
+                            customPrimaryColor: val,
+                            selectorActiveColor: val,
+                            buttonHoverColor: val
+                          });
+                          setDraftSelectorActiveColor(val);
+                          setDraftButtonHoverColor(val);
+                        }}
                         className="w-24 rounded-lg border border-slate-200 bg-white px-2 py-1 text-xs font-mono dark:border-slate-700 dark:bg-slate-900"
                       />
                     </div>
@@ -1334,13 +1678,27 @@ export const AdminCustomization: React.FC = () => {
                       <input
                         type="color"
                         value={themeSettings.customAccentColor || '#dc2626'}
-                        onChange={e => updateThemeSettings({ customAccentColor: e.target.value })}
+                        onChange={e => {
+                          const val = e.target.value;
+                          updateThemeSettings({
+                            customAccentColor: val,
+                            iconAccentColor: val
+                          });
+                          setDraftIconAccentColor(val);
+                        }}
                         className="h-8 w-10 cursor-pointer rounded-lg border border-slate-300 dark:border-slate-600 bg-transparent p-0.5"
                       />
                       <input
                         type="text"
                         value={themeSettings.customAccentColor || '#dc2626'}
-                        onChange={e => updateThemeSettings({ customAccentColor: e.target.value })}
+                        onChange={e => {
+                          const val = e.target.value;
+                          updateThemeSettings({
+                            customAccentColor: val,
+                            iconAccentColor: val
+                          });
+                          setDraftIconAccentColor(val);
+                        }}
                         className="w-24 rounded-lg border border-slate-200 bg-white px-2 py-1 text-xs font-mono dark:border-slate-700 dark:bg-slate-900"
                       />
                     </div>
@@ -1482,6 +1840,106 @@ export const AdminCustomization: React.FC = () => {
                 </div>
               </div>
 
+              {/* 🔠 5 Varian Font Tipografi Workspace (DM Sans, Helvetica, Segoe UI, Satoshi, Inter) */}
+              <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-xs dark:border-slate-800 dark:bg-slate-900 space-y-4">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                    <Type className="h-4 w-4 text-blue-600" />
+                    <span>Pilihan Varian Font Workspace (5 Pilihan Font)</span>
+                  </h3>
+                  <span className="text-[10px] font-bold text-blue-600 bg-blue-50 dark:bg-blue-950/40 px-2 py-0.5 rounded-full border border-blue-200 dark:border-blue-900/40">
+                    5 Varian Font
+                  </span>
+                </div>
+                <p className="text-xs text-slate-500">
+                  Ganti jenis tipografi utama antarmuka untuk menyesuaikan kenyamanan membaca dan identitas visual korporat.
+                </p>
+
+                <div className="space-y-2">
+                  {[
+                    {
+                      id: 'dm-sans',
+                      name: 'DM Sans',
+                      family: "'DM Sans', sans-serif",
+                      badge: 'Default / Modern',
+                      desc: 'Geometric & friendly sans-serif khas startup & tech modern'
+                    },
+                    {
+                      id: 'helvetica',
+                      name: 'Helvetica',
+                      family: "'Helvetica Neue', Helvetica, Arial, sans-serif",
+                      badge: 'Swiss Standard',
+                      desc: 'Standar netral & formal desainer Swiss untuk korporat profesional'
+                    },
+                    {
+                      id: 'segoe-ui',
+                      name: 'Segoe UI',
+                      family: "'Segoe UI', -apple-system, BlinkMacSystemFont, Roboto, sans-serif",
+                      badge: 'Enterprise',
+                      desc: 'Tipografi bersih enterprise khas platform sistem operasi modern'
+                    },
+                    {
+                      id: 'satoshi',
+                      name: 'Satoshi',
+                      family: "'Satoshi', sans-serif",
+                      badge: 'Contemporary',
+                      desc: 'Grotesk kontemporer dengan karakter tajam & proporsional'
+                    },
+                    {
+                      id: 'inter',
+                      name: 'Inter',
+                      family: "'Inter', sans-serif",
+                      badge: 'High Legibility',
+                      desc: 'Dirancang spesifik untuk ketajaman layar UI & keterbacaan data micro'
+                    }
+                  ].map(font => {
+                    const isSelected = (themeSettings.fontFamily || 'dm-sans') === font.id;
+                    return (
+                      <button
+                        key={font.id}
+                        type="button"
+                        onClick={() => updateThemeSettings({ fontFamily: font.id as any })}
+                        className={`flex items-center justify-between w-full p-3.5 rounded-2xl border transition text-left cursor-pointer ${
+                          isSelected
+                            ? 'border-blue-600 bg-blue-50/50 dark:border-blue-600 dark:bg-blue-950/30 ring-1 ring-blue-600 shadow-2xs'
+                            : 'border-slate-200 bg-slate-50/60 hover:bg-slate-100 dark:border-slate-800 dark:bg-slate-800/40'
+                        }`}
+                        style={{ fontFamily: font.family }}
+                      >
+                        <div className="flex items-center gap-3 min-w-0">
+                          <div
+                            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-sm font-black text-slate-900 dark:text-white shadow-2xs"
+                            style={{ fontFamily: font.family }}
+                          >
+                            Ag
+                          </div>
+                          <div className="min-w-0">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span className="text-xs font-bold text-slate-900 dark:text-white">
+                                {font.name}
+                              </span>
+                              <span className="rounded-md bg-slate-200/80 dark:bg-slate-700/80 px-1.5 py-0.2 text-[9px] font-bold text-slate-600 dark:text-slate-300">
+                                {font.badge}
+                              </span>
+                            </div>
+                            <p className="text-[10px] text-slate-400 dark:text-slate-500 truncate mt-0.5">
+                              {font.desc}
+                            </p>
+                          </div>
+                        </div>
+
+                        {isSelected ? (
+                          <div className="flex items-center gap-1.5 text-blue-600 font-bold text-xs shrink-0 pl-2">
+                            <Check className="h-4 w-4" />
+                            <span className="hidden sm:inline text-[11px]">Aktif</span>
+                          </div>
+                        ) : null}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
               {/* Bentuk UI (Card Radius) */}
               <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-xs dark:border-slate-800 dark:bg-slate-900 space-y-4">
                 <h3 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
@@ -1525,30 +1983,43 @@ export const AdminCustomization: React.FC = () => {
                 </div>
               </div>
 
-              {/* Background Pattern Workspace */}
+              {/* Background Pattern & Style Workspace */}
               <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-xs dark:border-slate-800 dark:bg-slate-900 space-y-4">
-                <h3 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                  <Sparkles className="h-4 w-4 text-amber-500" />
-                  <span>Pilihan Background Pola Workspace</span>
-                </h3>
+                <div className="flex items-center justify-between">
+                  <h3 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                    <Sparkles className="h-4 w-4 text-amber-500" />
+                    <span>Pilihan Background Pola & Gaya Workspace</span>
+                  </h3>
+                  <span className="text-[10px] font-bold text-blue-600 bg-blue-50 dark:bg-blue-950/40 px-2 py-0.5 rounded-full border border-blue-200 dark:border-blue-900/40">
+                    Live Canvas
+                  </span>
+                </div>
                 <p className="text-xs text-slate-500">
-                  Pola latar belakang elegan yang diterapkan ke seluruh kanvas kerja aplikasi.
+                  Pola latar belakang presisi, warna solid kustom, atau gradien modern yang diterapkan ke seluruh kanvas kerja aplikasi.
                 </p>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                   {[
-                    { id: 'clean', name: 'Polos & Bersih', desc: 'Tanpa pola (Minimalist standard)' },
-                    { id: 'dots', name: 'Pola Matrix Titik', desc: 'Subtle dots bernuansa arsitektur' },
-                    { id: 'grid', name: 'Kotak Geometris', desc: 'Precision grid teknik korporat' },
+                    { id: 'clean', name: 'Polos & Bersih', desc: 'Minimalist standard (Tanpa pola)' },
+                    { id: 'dots', name: 'Pola Matrix Titik', desc: 'Grid titik rapi & simetris matematis' },
+                    { id: 'grid', name: 'Kotak Geometris', desc: 'Garis grid arsitektur presisi & rapi' },
                     { id: 'mesh', name: 'Fluid Gradient Mesh', desc: 'Gradasi abstrak modern & lembut' },
-                    { id: 'aurora', name: 'Aurora Dinamis', desc: 'Pendaran cahaya lembut di sudut' }
+                    { id: 'aurora-glow', name: 'Aurora Dinamis', desc: 'Pendaran cahaya lembut di sudut' },
+                    { id: 'solid', name: 'Solid Color Kustom', desc: 'Warna latar solid pilihan atau hex' },
+                    { id: 'gradient', name: 'Gradien Modern Kustom', desc: 'Gradasi 2-warna & preset desainer' }
                   ].map(pattern => {
-                    const isSelected = (themeSettings.bgPattern || 'clean') === pattern.id;
+                    const isSelected = (themeSettings.bgPattern || 'clean') === pattern.id || (pattern.id === 'aurora-glow' && themeSettings.bgPattern === 'aurora' as any);
                     return (
                       <button
                         key={pattern.id}
                         type="button"
-                        onClick={() => updateThemeSettings({ bgPattern: pattern.id as any })}
+                        onClick={() => {
+                          updateThemeSettings({
+                            bgPattern: pattern.id as any,
+                            customBgSolidColor: pattern.id === 'solid' && !themeSettings.customBgSolidColor ? (themeMode === 'dark' ? '#0b0f19' : '#f8fafc') : themeSettings.customBgSolidColor,
+                            customBgGradient: pattern.id === 'gradient' && !themeSettings.customBgGradient ? 'linear-gradient(135deg, #f0fdf4 0%, #e0f2fe 50%, #fef3c7 100%)' : themeSettings.customBgGradient
+                          });
+                        }}
                         className={`flex flex-col text-left p-3 rounded-2xl border transition cursor-pointer ${
                           isSelected
                             ? 'border-blue-600 bg-blue-50/50 dark:border-blue-600 dark:bg-blue-950/30 ring-1 ring-blue-600'
@@ -1566,6 +2037,166 @@ export const AdminCustomization: React.FC = () => {
                     );
                   })}
                 </div>
+
+                {/* Sub-Panel: Solid Color Customizer */}
+                {themeSettings.bgPattern === 'solid' && (
+                  <div className="rounded-2xl border border-blue-200 bg-blue-50/40 p-4 dark:border-blue-900/60 dark:bg-blue-950/20 space-y-3 animate-in fade-in duration-200">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-bold text-blue-900 dark:text-blue-200 flex items-center gap-1.5">
+                        <Palette className="h-3.5 w-3.5 text-blue-600" />
+                        <span>Kustomisasi Background Solid Color:</span>
+                      </span>
+                      <span className="text-[10px] font-mono text-slate-500">
+                        {themeSettings.customBgSolidColor || (themeMode === 'dark' ? '#0b0f19' : '#f8fafc')}
+                      </span>
+                    </div>
+
+                    {/* Presets Grid */}
+                    <div>
+                      <span className="text-[10px] font-semibold text-slate-500 dark:text-slate-400 block mb-1.5">
+                        Pilihan Palet Solid Cepat ({themeMode === 'dark' ? 'Dark Mode' : 'Light Mode'}):
+                      </span>
+                      <div className="flex flex-wrap gap-2">
+                        {(themeMode === 'dark'
+                          ? [
+                              { name: 'Midnight Space', color: '#0b0f19' },
+                              { name: 'Obsidian Carbon', color: '#090d16' },
+                              { name: 'Deep Slate', color: '#0f172a' },
+                              { name: 'Dark Charcoal', color: '#111827' },
+                              { name: 'Eclipse Violet', color: '#1e1b4b' },
+                              { name: 'Emerald Abyss', color: '#022c22' }
+                            ]
+                          : [
+                              { name: 'Studio Off-White', color: '#f8fafc' },
+                              { name: 'Clean Pearl', color: '#fafaf9' },
+                              { name: 'Ice Blue Frost', color: '#f0f9ff' },
+                              { name: 'Soft Mint', color: '#f0fdf4' },
+                              { name: 'Warm Sand', color: '#fefce8' },
+                              { name: 'Lavender Whisper', color: '#faf5ff' }
+                            ]
+                        ).map(s => (
+                          <button
+                            key={s.color}
+                            type="button"
+                            onClick={() => updateThemeSettings({ customBgSolidColor: s.color })}
+                            className="flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-2.5 py-1 text-xs font-medium dark:border-slate-700 dark:bg-slate-900 hover:shadow-2xs transition cursor-pointer"
+                          >
+                            <span
+                              className="h-3.5 w-3.5 rounded-full ring-1 ring-slate-300 dark:ring-slate-600"
+                              style={{ backgroundColor: s.color }}
+                            />
+                            <span className="text-slate-800 dark:text-slate-200">{s.name}</span>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Custom Color Input */}
+                    <div className="flex items-center justify-between pt-2 border-t border-blue-200/60 dark:border-blue-900/50">
+                      <span className="text-[11px] font-semibold text-slate-600 dark:text-slate-300">
+                        Atur Hex Warna Sendiri:
+                      </span>
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="color"
+                          value={themeSettings.customBgSolidColor || (themeMode === 'dark' ? '#0b0f19' : '#f8fafc')}
+                          onChange={e => updateThemeSettings({ customBgSolidColor: e.target.value })}
+                          className="h-8 w-10 cursor-pointer rounded-lg border border-slate-300 dark:border-slate-600 bg-transparent p-0.5"
+                        />
+                        <input
+                          type="text"
+                          value={themeSettings.customBgSolidColor || (themeMode === 'dark' ? '#0b0f19' : '#f8fafc')}
+                          onChange={e => updateThemeSettings({ customBgSolidColor: e.target.value })}
+                          className="w-24 rounded-lg border border-slate-200 bg-white px-2 py-1 text-xs font-mono dark:border-slate-700 dark:bg-slate-900"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Sub-Panel: Gradient Customizer */}
+                {themeSettings.bgPattern === 'gradient' && (
+                  <div className="rounded-2xl border border-blue-200 bg-blue-50/40 p-4 dark:border-blue-900/60 dark:bg-blue-950/20 space-y-3 animate-in fade-in duration-200">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-bold text-blue-900 dark:text-blue-200 flex items-center gap-1.5">
+                        <Sparkles className="h-3.5 w-3.5 text-blue-600" />
+                        <span>Koleksi Gradien Modern Desainer:</span>
+                      </span>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                      {[
+                        {
+                          name: 'Sunrise Velvet',
+                          gradient: themeMode === 'dark'
+                            ? 'linear-gradient(135deg, #18181b 0%, #27272a 50%, #1c1917 100%)'
+                            : 'linear-gradient(135deg, #fef2f2 0%, #fff7ed 50%, #f0fdf4 100%)',
+                          preview: 'from-rose-100 via-orange-50 to-emerald-50'
+                        },
+                        {
+                          name: 'Cosmic Aurora',
+                          gradient: themeMode === 'dark'
+                            ? 'linear-gradient(135deg, #090d16 0%, #1e1b4b 50%, #172554 100%)'
+                            : 'linear-gradient(135deg, #eff6ff 0%, #f5f3ff 50%, #fdf2f8 100%)',
+                          preview: 'from-blue-100 via-purple-50 to-pink-50'
+                        },
+                        {
+                          name: 'Forest Mist',
+                          gradient: themeMode === 'dark'
+                            ? 'linear-gradient(135deg, #022c22 0%, #064e3b 50%, #0f172a 100%)'
+                            : 'linear-gradient(135deg, #f0fdf4 0%, #ecfeff 50%, #f8fafc 100%)',
+                          preview: 'from-emerald-50 via-teal-50 to-slate-50'
+                        },
+                        {
+                          name: 'Royal Twilight',
+                          gradient: themeMode === 'dark'
+                            ? 'linear-gradient(135deg, #1e1b4b 0%, #2e1065 50%, #0f172a 100%)'
+                            : 'linear-gradient(135deg, #faf5ff 0%, #f3e8ff 50%, #e0e7ff 100%)',
+                          preview: 'from-purple-50 via-indigo-50 to-blue-50'
+                        },
+                        {
+                          name: 'Cyber Slate',
+                          gradient: themeMode === 'dark'
+                            ? 'linear-gradient(135deg, #020617 0%, #0f172a 50%, #1e293b 100%)'
+                            : 'linear-gradient(135deg, #f1f5f9 0%, #e2e8f0 50%, #cbd5e1 100%)',
+                          preview: 'from-slate-100 via-slate-200 to-slate-300'
+                        },
+                        {
+                          name: 'Warm Golden Glow',
+                          gradient: themeMode === 'dark'
+                            ? 'linear-gradient(135deg, #1c1917 0%, #451a03 50%, #0f172a 100%)'
+                            : 'linear-gradient(135deg, #fffbeb 0%, #fef3c7 50%, #fff7ed 100%)',
+                          preview: 'from-amber-50 via-yellow-100 to-orange-50'
+                        }
+                      ].map(g => {
+                        const isGradSelected = themeSettings.customBgGradient === g.gradient;
+                        return (
+                          <button
+                            key={g.name}
+                            type="button"
+                            onClick={() => updateThemeSettings({ customBgGradient: g.gradient })}
+                            className={`flex items-center justify-between p-2.5 rounded-xl border transition cursor-pointer text-left ${
+                              isGradSelected
+                                ? 'border-blue-600 bg-white dark:bg-slate-900 shadow-2xs ring-1 ring-blue-600'
+                                : 'border-slate-200 bg-white/70 hover:bg-white dark:border-slate-700 dark:bg-slate-900/60'
+                            }`}
+                          >
+                            <div className="flex items-center gap-2">
+                              <span
+                                className="h-6 w-8 rounded-lg shadow-2xs border border-slate-200 dark:border-slate-700 shrink-0"
+                                style={{ background: g.gradient }}
+                              />
+                              <span className="text-xs font-bold text-slate-800 dark:text-slate-200">
+                                {g.name}
+                              </span>
+                            </div>
+                            {isGradSelected && <Check className="h-4 w-4 text-blue-600" />}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* Maintenance & Reset */}

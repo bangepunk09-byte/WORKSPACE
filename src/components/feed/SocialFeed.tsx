@@ -17,33 +17,63 @@ import {
   Trash2,
   CheckCircle2,
   X,
-  Maximize2
+  Maximize2,
+  MessageSquare
 } from 'lucide-react';
 import { useWorkspace } from '../../context/WorkspaceContext';
-import { Post, Attachment } from '../../types';
+import { Post, Attachment, User } from '../../types';
 
 export const SocialFeed: React.FC = () => {
   const {
     currentUser,
+    users,
     posts,
     createPost,
     likePost,
+    reactToPost,
     bookmarkPost,
     addComment,
     votePoll,
     togglePinPost,
-    deletePost
+    deletePost,
+    customStickers,
+    addCustomSticker,
+    openEmployeeProfileByName,
+    startDirectMessage,
+    setActiveTab
   } = useWorkspace();
 
   const [activeCategory, setActiveCategory] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedTag, setSelectedTag] = useState<string | null>(null);
 
+  // Reaction picker state
+  const [hoveredPostId, setHoveredPostId] = useState<string | null>(null);
+  const [activePickerPostId, setActivePickerPostId] = useState<string | null>(null);
+
+  // Advanced Comment feature states
+  const [replyingTo, setReplyingTo] = useState<Record<string, { id: string; name: string } | null>>({});
+  const [showStickerPicker, setShowStickerPicker] = useState<Record<string, boolean>>({});
+  const [showGifPicker, setShowGifPicker] = useState<Record<string, boolean>>({});
+  const [showStickerPopover, setShowStickerPopover] = useState<Record<string, boolean>>({});
+  const [showGifPopover, setShowGifPopover] = useState<Record<string, boolean>>({});
+  const [showMentionDropdown, setShowMentionDropdown] = useState<Record<string, boolean>>({});
+  const [mentionCardUser, setMentionCardUser] = useState<User | null>(null);
+
+  const handleMentionClick = (nameWithoutAt: string) => {
+    const found = users.find(
+      u => u.name.toLowerCase() === nameWithoutAt.toLowerCase() || u.name.toLowerCase().includes(nameWithoutAt.toLowerCase())
+    );
+    if (found) {
+      setMentionCardUser(found);
+    }
+  };
+
   // New post state
   const [postContent, setPostContent] = useState('');
   const [postType, setPostType] = useState<'standard' | 'announcement' | 'poll'>('standard');
   const [pollOptionsInput, setPollOptionsInput] = useState(['', '']);
-  const [postTags, setPostTags] = useState('General, Update');
+  const [postTags, setPostTags] = useState('');
   const [isExpandingCreator, setIsExpandingCreator] = useState(false);
   const [postErrorMsg, setPostErrorMsg] = useState<string | null>(null);
   const [repostToastMsg, setRepostToastMsg] = useState<string | null>(null);
@@ -95,13 +125,39 @@ export const SocialFeed: React.FC = () => {
     { id: 'polls', label: '📊 Polling Tim' },
   ];
 
-  const trendingHashtags = [
-    { tag: 'WorkspaceLaunch', count: '48 kiriman' },
-    { tag: 'TownhallQ4', count: '32 kiriman' },
-    { tag: 'SecurityISO', count: '19 kiriman' },
-    { tag: 'HybridWork', count: '14 kiriman' },
-    { tag: 'Sprint34', count: '12 kiriman' }
-  ];
+  const computedTrendingHashtags = React.useMemo(() => {
+    const counts: Record<string, number> = {};
+
+    posts.forEach(post => {
+      if (post.tags && Array.isArray(post.tags)) {
+        post.tags.forEach(t => {
+          const cleanTag = t.replace(/^#/, '').trim();
+          if (cleanTag) {
+            counts[cleanTag] = (counts[cleanTag] || 0) + 1;
+          }
+        });
+      }
+
+      const matches = post.content.match(/#([a-zA-Z0-9_\u0600-\u06FF]+)/g);
+      if (matches) {
+        matches.forEach(m => {
+          const cleanTag = m.replace(/^#/, '').trim();
+          if (cleanTag) {
+            counts[cleanTag] = (counts[cleanTag] || 0) + 1;
+          }
+        });
+      }
+    });
+
+    return Object.entries(counts)
+      .map(([tag, count]) => ({
+        tag,
+        rawCount: count,
+        count: `${count} kiriman`
+      }))
+      .sort((a, b) => b.rawCount - a.rawCount)
+      .slice(0, 10);
+  }, [posts]);
 
   const handleCreatePost = (e: React.FormEvent) => {
     e.preventDefault();
@@ -163,11 +219,21 @@ export const SocialFeed: React.FC = () => {
     setPollOptionsInput(updated);
   };
 
-  const handleCommentSubmit = (postId: string) => {
+  const handleCommentSubmit = (postId: string, stickerUrl?: string, gifUrl?: string) => {
     const text = commentInputs[postId] || '';
-    if (!text.trim()) return;
-    addComment(postId, text);
+    if (!text.trim() && !stickerUrl && !gifUrl) return;
+    const rep = replyingTo[postId];
+    addComment(postId, text, {
+      parentId: rep?.id,
+      replyToName: rep?.name,
+      stickerUrl,
+      gifUrl
+    });
     setCommentInputs({ ...commentInputs, [postId]: '' });
+    setReplyingTo({ ...replyingTo, [postId]: null });
+    setShowStickerPicker({ ...showStickerPicker, [postId]: false });
+    setShowGifPicker({ ...showGifPicker, [postId]: false });
+    setShowMentionDropdown({ ...showMentionDropdown, [postId]: false });
   };
 
   // Filter posts
@@ -666,20 +732,89 @@ export const SocialFeed: React.FC = () => {
                     </div>
                   )}
 
+                  {/* Reaction Pills & Animated Emoji Picker */}
+                  <div className="mt-3.5 flex flex-wrap items-center gap-2 relative">
+                    {(() => {
+                      const availableEmojis = ['😍', '❤️', '🔥', '⚡', '🤝', '👍', '🎉', '🚀'];
+                      const postReactions = post.reactions && post.reactions.length > 0 ? post.reactions : [
+                        { emoji: '😍', userIds: post.likes.slice(0, 14) },
+                        { emoji: '❤️', userIds: post.likes },
+                        { emoji: '🔥', userIds: post.likes.slice(0, 35) },
+                        { emoji: '⚡', userIds: post.likes.slice(0, 19) },
+                        { emoji: '🤝', userIds: post.likes.slice(0, 22) }
+                      ];
+
+                      const userReactedEmojis = postReactions
+                        .filter(r => r.userIds.includes(currentUser.id))
+                        .map(r => r.emoji);
+
+                      const unchosenEmojis = availableEmojis.filter(e => !userReactedEmojis.includes(e));
+
+                      return (
+                        <>
+                          {postReactions.map(r => {
+                            const hasUser = r.userIds.includes(currentUser.id);
+                            return (
+                              <button
+                                key={r.emoji}
+                                onClick={() => reactToPost(post.id, r.emoji)}
+                                className={`flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold border transition transform hover:scale-105 active:scale-95 cursor-pointer shadow-2xs ${
+                                  hasUser
+                                    ? 'border-red-500 bg-red-50 text-red-700 dark:border-red-900 dark:bg-red-950/60 dark:text-red-300 font-bold'
+                                    : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200'
+                                }`}
+                              >
+                                <span>{r.emoji}</span>
+                                <span>{r.userIds.length}</span>
+                              </button>
+                            );
+                          })}
+
+                          {/* Hover / Click Emoji Picker Trigger */}
+                          <div
+                            className="relative"
+                            onMouseEnter={() => setHoveredPostId(post.id)}
+                            onMouseLeave={() => setHoveredPostId(null)}
+                          >
+                            <button
+                              type="button"
+                              onClick={() => setActivePickerPostId(activePickerPostId === post.id ? null : post.id)}
+                              className="flex items-center gap-1 rounded-full border border-slate-200 bg-white px-2.5 py-1 text-xs font-semibold text-slate-500 hover:bg-slate-50 hover:text-red-600 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-400 transition cursor-pointer shadow-2xs"
+                              title="Tambah reaksi emoji"
+                            >
+                              <span>+</span>
+                              <span>😊</span>
+                            </button>
+
+                            {/* Popup Animated Emoji Picker (disappears already chosen emojis) */}
+                            {(hoveredPostId === post.id || activePickerPostId === post.id) && unchosenEmojis.length > 0 && (
+                              <div className="absolute bottom-full mb-2 left-0 z-30 flex items-center gap-1.5 rounded-2xl border border-slate-200 bg-white p-2.5 shadow-xl dark:border-slate-700 dark:bg-slate-900 animate-in fade-in slide-in-from-bottom-2 duration-200">
+                                {unchosenEmojis.map(emoji => (
+                                  <button
+                                    key={emoji}
+                                    type="button"
+                                    onClick={() => {
+                                      reactToPost(post.id, emoji);
+                                      setActivePickerPostId(null);
+                                      setHoveredPostId(null);
+                                    }}
+                                    className="h-9 w-9 flex items-center justify-center rounded-xl text-xl transition transform hover:scale-125 hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer"
+                                    title={`Reaksi ${emoji}`}
+                                  >
+                                    {emoji}
+                                  </button>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        </>
+                      );
+                    })()}
+                  </div>
+
                   {/* Interaction Bar */}
                   <div className="mt-4 flex items-center justify-between border-t border-slate-100 pt-3 dark:border-slate-800 text-slate-500">
                     <div className="flex items-center gap-4">
-                      {/* Like button */}
-                      <button
-                        onClick={() => likePost(post.id)}
-                        className={`flex items-center gap-1.5 text-xs font-semibold transition ${
-                          hasLiked ? 'text-red-600 font-bold' : 'hover:text-red-600'
-                        }`}
-                      >
-                        <Heart className={`h-4 w-4 ${hasLiked ? 'fill-red-600 text-red-600' : ''}`} />
-                        <span>{post.likes.length}</span>
-                      </button>
-
                       {/* Comment button */}
                       <button
                         onClick={() =>
@@ -688,10 +823,10 @@ export const SocialFeed: React.FC = () => {
                             [post.id]: !showComments
                           })
                         }
-                        className="flex items-center gap-1.5 text-xs font-semibold hover:text-slate-800 dark:hover:text-slate-200"
+                        className="flex items-center gap-1.5 text-xs font-semibold hover:text-slate-800 dark:hover:text-slate-200 cursor-pointer"
                       >
                         <MessageCircle className="h-4 w-4" />
-                        <span>{post.comments.length}</span>
+                        <span>{post.comments.length} Komentar</span>
                       </button>
 
                       {/* Repost button */}
@@ -700,10 +835,10 @@ export const SocialFeed: React.FC = () => {
                           setRepostToastMsg('Kiriman berhasil dibagikan ulang (reposted)!');
                           setTimeout(() => setRepostToastMsg(null), 3000);
                         }}
-                        className="flex items-center gap-1.5 text-xs font-semibold hover:text-emerald-600 transition"
+                        className="flex items-center gap-1.5 text-xs font-semibold hover:text-emerald-600 transition cursor-pointer"
                       >
                         <Repeat2 className="h-4 w-4" />
-                        <span>{post.reposts.length}</span>
+                        <span>{post.reposts.length} Bagikan</span>
                       </button>
                     </div>
 
@@ -719,13 +854,14 @@ export const SocialFeed: React.FC = () => {
                     </button>
                   </div>
 
-                  {/* Expandable Comments Section */}
-                  {showComments && (
-                    <div className="mt-4 space-y-3 border-t border-slate-100 pt-3 dark:border-slate-800">
-                      {/* Comments list */}
-                      <div className="space-y-2.5">
-                        {post.comments.map(c => (
-                          <div key={c.id} className="flex gap-2.5 text-xs">
+                  {/* Comments Section - Always Visible (Max 4 initially with Show More) */}
+                  <div className="mt-4 space-y-3 border-t border-slate-100 pt-3 dark:border-slate-800">
+                    {/* Comments list */}
+                    <div className="space-y-2.5">
+                      {(() => {
+                        const commentsList = showComments ? post.comments : post.comments.slice(0, 4);
+                        return commentsList.map(c => (
+                          <div key={c.id} className={`flex gap-2.5 text-xs ${c.parentId ? 'ml-6 sm:ml-8 border-l-2 border-red-200 dark:border-red-900/50 pl-2.5' : ''}`}>
                             <img
                               src={c.authorAvatar}
                               alt={c.authorName}
@@ -733,47 +869,248 @@ export const SocialFeed: React.FC = () => {
                             />
                             <div className="flex-1 rounded-2xl bg-slate-50 p-2.5 dark:bg-slate-800/70">
                               <div className="flex items-center justify-between">
-                                <span className="font-bold text-slate-900 dark:text-white">
+                                <span className="font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
                                   {c.authorName}
+                                  {c.replyToName && (
+                                    <span className="text-[10px] font-normal text-slate-400">
+                                      membalas @{c.replyToName}
+                                    </span>
+                                  )}
                                 </span>
-                                <span className="text-[10px] text-slate-400">Baru saja</span>
+                                <div className="flex items-center gap-2">
+                                  <span className="text-[10px] text-slate-400">Baru saja</span>
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      setReplyingTo({
+                                        ...replyingTo,
+                                        [post.id]: { id: c.id, name: c.authorName }
+                                      })
+                                    }
+                                    className="text-[10px] font-bold text-red-600 hover:underline dark:text-red-400 cursor-pointer"
+                                  >
+                                    Balas
+                                  </button>
+                                </div>
                               </div>
-                              <p className="mt-1 text-slate-700 dark:text-slate-300">
-                                {c.content}
+                              <p className="mt-1 text-slate-700 dark:text-slate-300 leading-relaxed whitespace-pre-line">
+                                {c.content.split(' ').map((word, idx) => {
+                                  if (word.startsWith('@')) {
+                                    const nameWithoutAt = word.substring(1).replace(/[,.]/g, '');
+                                    return (
+                                      <span
+                                        key={idx}
+                                        onClick={() => handleMentionClick(nameWithoutAt)}
+                                        className="font-bold text-red-600 dark:text-red-400 hover:underline cursor-pointer inline-block mx-0.5"
+                                      >
+                                        {word}{' '}
+                                      </span>
+                                    );
+                                  }
+                                  return word + ' ';
+                                })}
                               </p>
+
+                              {/* Sticker attachment in comment */}
+                              {c.stickerUrl && (
+                                <div className="mt-2">
+                                  <img src={c.stickerUrl} alt="sticker" className="h-20 w-20 object-contain rounded-xl" />
+                                </div>
+                              )}
+
+                              {/* GIF attachment in comment */}
+                              {c.gifUrl && (
+                                <div className="mt-2 overflow-hidden rounded-xl max-w-xs">
+                                  <img src={c.gifUrl} alt="gif" className="max-h-36 w-full object-cover rounded-xl" />
+                                </div>
+                              )}
                             </div>
                           </div>
+                        ));
+                      })()}
+                    </div>
+
+                    {/* Show More / Show Less Comments Button */}
+                    {post.comments.length > 4 && (
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setExpandedComments({
+                            ...expandedComments,
+                            [post.id]: !showComments
+                          })
+                        }
+                        className="text-xs font-bold text-red-600 hover:text-red-700 dark:text-red-400 cursor-pointer"
+                      >
+                        {showComments ? 'Tutup Komentar' : `Lihat ${post.comments.length - 4} komentar lainnya...`}
+                      </button>
+                    )}
+
+                    {/* Replying banner */}
+                    {replyingTo[post.id] && (
+                      <div className="flex items-center justify-between rounded-xl bg-red-50 px-3 py-1.5 text-xs text-red-800 dark:bg-red-950/60 dark:text-red-300">
+                        <span>Membalas <strong>@{replyingTo[post.id]?.name}</strong></span>
+                        <button
+                          type="button"
+                          onClick={() => setReplyingTo({ ...replyingTo, [post.id]: null })}
+                          className="font-bold hover:underline text-[11px]"
+                        >
+                          Batal
+                        </button>
+                      </div>
+                    )}
+
+                    {/* Add comment input & Pickers */}
+                    <div className="relative">
+                      {/* Sticker Picker Popover */}
+                      {showStickerPopover[post.id] && (
+                        <div className="absolute bottom-full mb-2 left-0 z-30 w-72 rounded-2xl border border-slate-200 bg-white p-3 shadow-2xl dark:border-slate-700 dark:bg-slate-900 animate-in fade-in">
+                          <div className="flex items-center justify-between mb-2 pb-1.5 border-b border-slate-100 dark:border-slate-800">
+                            <span className="text-xs font-bold text-slate-700 dark:text-slate-200">Pilih / Tambah Stiker</span>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const name = prompt('Nama stiker baru:');
+                                const url = prompt('URL gambar stiker (PNG/JPG):');
+                                if (name && url) {
+                                  addCustomSticker(name, url);
+                                }
+                              }}
+                              className="rounded-lg bg-red-600 px-2.5 py-1 text-[10px] font-bold text-white hover:bg-red-700 cursor-pointer transition"
+                            >
+                              + Stiker Baru
+                            </button>
+                          </div>
+                          <div className="grid grid-cols-4 gap-2 max-h-48 overflow-y-auto">
+                            {customStickers.map(stk => (
+                              <button
+                                key={stk.id}
+                                type="button"
+                                onClick={() => handleCommentSubmit(post.id, stk.url, undefined)}
+                                className="group flex flex-col items-center rounded-xl p-1.5 hover:bg-slate-100 dark:hover:bg-slate-800 transition cursor-pointer"
+                                title={stk.name}
+                              >
+                                <img src={stk.url} alt={stk.name} className="h-12 w-12 object-cover rounded-lg" />
+                                <span className="mt-1 text-[9px] font-bold text-slate-600 dark:text-slate-300 truncate w-full text-center">{stk.name}</span>
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* GIF Picker Popover */}
+                      {showGifPopover[post.id] && (
+                        <div className="absolute bottom-full mb-2 left-0 z-30 grid grid-cols-2 gap-2 rounded-2xl border border-slate-200 bg-white p-3 shadow-2xl dark:border-slate-700 dark:bg-slate-900 w-72 animate-in fade-in">
+                          <div className="col-span-2 text-[11px] font-bold text-slate-500 mb-1">Pilih GIF Reaksi:</div>
+                        {[
+                          { name: 'Celebration', url: 'https://images.unsplash.com/photo-1492684223066-81342ee5ff30?w=300&auto=format&fit=crop&q=80' },
+                          { name: 'Handshake', url: 'https://images.unsplash.com/photo-1521737604893-d14cc237f11d?w=300&auto=format&fit=crop&q=80' },
+                          { name: 'Coffee Break', url: 'https://images.unsplash.com/photo-1514432324607-a09d9b4aefdd?w=300&auto=format&fit=crop&q=80' },
+                          { name: 'Ideas', url: 'https://images.unsplash.com/photo-1499750310107-5fef28a66643?w=300&auto=format&fit=crop&q=80' }
+                        ].map(gif => (
+                          <button
+                            key={gif.name}
+                            type="button"
+                            onClick={() => handleCommentSubmit(post.id, undefined, gif.url)}
+                            className="group relative overflow-hidden rounded-xl border border-slate-200 dark:border-slate-700 h-20 hover:scale-[1.02] transition cursor-pointer"
+                          >
+                            <img src={gif.url} alt={gif.name} className="w-full h-full object-cover" />
+                            <span className="absolute inset-x-0 bottom-0 bg-black/60 text-[9px] font-bold text-white text-center py-0.5">
+                              {gif.name}
+                            </span>
+                          </button>
                         ))}
                       </div>
+                    )}
 
-                      {/* Add comment input */}
-                      <div className="flex items-center gap-2 pt-2">
-                        <img
-                          src={currentUser.avatar}
-                          alt="me"
-                          className="h-7 w-7 rounded-full object-cover shrink-0"
-                        />
+                    {/* Mention Dropdown */}
+                    {showMentionDropdown[post.id] && (
+                      <div className="absolute bottom-full mb-2 left-0 z-30 max-h-48 overflow-y-auto rounded-2xl border border-slate-200 bg-white p-1.5 shadow-xl dark:border-slate-700 dark:bg-slate-900 w-64 animate-in fade-in">
+                        <div className="px-2 py-1 text-[10px] font-bold text-slate-400">Mention Rekan Kerja:</div>
+                        {users.map(u => (
+                          <button
+                            key={u.id}
+                            type="button"
+                            onClick={() => {
+                              const currentVal = commentInputs[post.id] || '';
+                              const lastAtIndex = currentVal.lastIndexOf('@');
+                              const newVal = lastAtIndex !== -1 ? currentVal.substring(0, lastAtIndex) + `@${u.name} ` : currentVal + `@${u.name} `;
+                              setCommentInputs({ ...commentInputs, [post.id]: newVal });
+                              setShowMentionDropdown({ ...showMentionDropdown, [post.id]: false });
+                            }}
+                            className="flex w-full items-center gap-2 rounded-xl p-2 text-left hover:bg-slate-100 dark:hover:bg-slate-800 transition cursor-pointer"
+                          >
+                            <img src={u.avatar} alt={u.name} className="h-6 w-6 rounded-full object-cover" />
+                            <div>
+                              <div className="text-xs font-bold text-slate-900 dark:text-white">{u.name}</div>
+                              <div className="text-[10px] text-slate-400">{u.position}</div>
+                            </div>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+
+                    <div className="flex items-center gap-2 pt-2">
+                      <img
+                        src={currentUser.avatar}
+                        alt="me"
+                        className="h-7 w-7 rounded-full object-cover shrink-0"
+                      />
+                      <div className="relative flex-1">
                         <input
                           type="text"
-                          placeholder="Tulis balasan komentar..."
+                          placeholder="Tulis balasan komentar... (ketik @ untuk mention)"
                           value={commentInputs[post.id] || ''}
-                          onChange={e =>
-                            setCommentInputs({ ...commentInputs, [post.id]: e.target.value })
-                          }
+                          onChange={e => {
+                            const val = e.target.value;
+                            setCommentInputs({ ...commentInputs, [post.id]: val });
+                            if (val.endsWith('@') || val.includes('@')) {
+                              setShowMentionDropdown({ ...showMentionDropdown, [post.id]: true });
+                            } else {
+                              setShowMentionDropdown({ ...showMentionDropdown, [post.id]: false });
+                            }
+                          }}
                           onKeyDown={e => {
                             if (e.key === 'Enter') handleCommentSubmit(post.id);
                           }}
-                          className="flex-1 rounded-xl border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs text-slate-800 focus:border-red-500 focus:bg-white focus:outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200"
+                          className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3.5 py-2 pr-28 text-xs text-slate-800 focus:border-red-500 focus:bg-white focus:outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200"
                         />
-                        <button
-                          onClick={() => handleCommentSubmit(post.id)}
-                          className="rounded-xl bg-slate-900 px-3 py-1.5 text-xs font-bold text-white hover:bg-slate-800 dark:bg-red-600 dark:hover:bg-red-700"
-                        >
-                          Balas
-                        </button>
+                        <div className="absolute right-2.5 top-1/2 -translate-y-1/2 flex items-center gap-1.5 bg-white/95 dark:bg-slate-800/95 px-1.5 py-0.5 rounded-lg border border-slate-200/60 dark:border-slate-700/60 shadow-2xs">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setShowStickerPopover({ ...showStickerPopover, [post.id]: !showStickerPopover[post.id] });
+                              setShowGifPopover({ ...showGifPopover, [post.id]: false });
+                            }}
+                            className="flex items-center gap-0.5 rounded-md px-1 py-0.5 text-[11px] font-bold text-slate-600 hover:bg-slate-100 hover:text-red-600 dark:text-slate-300 dark:hover:bg-slate-700 transition cursor-pointer"
+                            title="Kirim Stiker"
+                          >
+                            <span>🏷️</span>
+                            <span className="hidden sm:inline">Stiker</span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setShowGifPopover({ ...showGifPopover, [post.id]: !showGifPopover[post.id] });
+                              setShowStickerPopover({ ...showStickerPopover, [post.id]: false });
+                            }}
+                            className="flex items-center gap-0.5 rounded-md px-1 py-0.5 text-[11px] font-bold text-slate-600 hover:bg-slate-100 hover:text-red-600 dark:text-slate-300 dark:hover:bg-slate-700 transition cursor-pointer"
+                            title="Kirim GIF"
+                          >
+                            <span>🎞️</span>
+                            <span className="hidden sm:inline">GIF</span>
+                          </button>
+                        </div>
                       </div>
+                      <button
+                        onClick={() => handleCommentSubmit(post.id)}
+                        className="rounded-xl bg-slate-900 px-3.5 py-2 text-xs font-bold text-white hover:bg-slate-800 dark:bg-red-600 dark:hover:bg-red-700 cursor-pointer shrink-0"
+                      >
+                        Kirim
+                      </button>
                     </div>
-                  )}
+                  </div>
+                  </div>
                 </article>
               );
             })
@@ -791,23 +1128,35 @@ export const SocialFeed: React.FC = () => {
               Trending Topics
             </h3>
           </div>
-          <div className="space-y-2.5">
-            {trendingHashtags.map(t => (
-              <div
-                key={t.tag}
-                onClick={() => setSelectedTag(t.tag)}
-                className="group flex cursor-pointer items-center justify-between rounded-xl p-2 transition hover:bg-slate-50 dark:hover:bg-slate-800"
-              >
-                <div>
-                  <div className="text-xs font-bold text-slate-800 dark:text-slate-200 group-hover:text-red-600">
-                    #{t.tag}
+          {computedTrendingHashtags.length === 0 ? (
+            <div className="py-5 text-center">
+              <Tag className="mx-auto h-6 w-6 text-slate-300 dark:text-slate-600 mb-1.5" />
+              <p className="text-xs font-medium text-slate-500 dark:text-slate-400">
+                Belum ada topik populer.
+              </p>
+              <p className="text-[10px] text-slate-400 dark:text-slate-500 mt-1 leading-relaxed">
+                Tulis #tag di postingan Anda untuk memulai trending topic.
+              </p>
+            </div>
+          ) : (
+            <div className="space-y-2.5">
+              {computedTrendingHashtags.map(t => (
+                <div
+                  key={t.tag}
+                  onClick={() => setSelectedTag(t.tag)}
+                  className="group flex cursor-pointer items-center justify-between rounded-xl p-2 transition hover:bg-slate-50 dark:hover:bg-slate-800"
+                >
+                  <div>
+                    <div className="text-xs font-bold text-slate-800 dark:text-slate-200 group-hover:text-red-600">
+                      #{t.tag}
+                    </div>
+                    <div className="text-[10px] text-slate-400">{t.count}</div>
                   </div>
-                  <div className="text-[10px] text-slate-400">{t.count}</div>
+                  <Tag className="h-3.5 w-3.5 text-slate-400 group-hover:text-red-600" />
                 </div>
-                <Tag className="h-3.5 w-3.5 text-slate-400 group-hover:text-red-600" />
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          )}
         </div>
 
         {/* Corporate Guidelines Card */}
@@ -848,6 +1197,83 @@ export const SocialFeed: React.FC = () => {
                 {activeLightboxImage.title}
               </div>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* Mention Employee Profile Card Modal */}
+      {mentionCardUser && (
+        <div
+          onClick={() => setMentionCardUser(null)}
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in"
+        >
+          <div
+            onClick={e => e.stopPropagation()}
+            className="relative w-full max-w-sm overflow-hidden rounded-3xl bg-white p-6 shadow-2xl dark:bg-slate-900 border border-slate-200 dark:border-slate-800 animate-in zoom-in-95 duration-150"
+          >
+            <button
+              type="button"
+              onClick={() => setMentionCardUser(null)}
+              className="absolute top-4 right-4 rounded-full bg-slate-100 p-1.5 text-slate-500 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-400 dark:hover:bg-slate-700 transition cursor-pointer"
+            >
+              <X className="h-4 w-4" />
+            </button>
+
+            <div className="flex flex-col items-center text-center">
+              <img
+                src={mentionCardUser.avatar}
+                alt={mentionCardUser.name}
+                className="h-20 w-20 rounded-full object-cover ring-4 ring-slate-100 dark:ring-slate-800 shadow-md mb-3"
+              />
+              <h3 className="text-base font-bold text-slate-900 dark:text-white">
+                {mentionCardUser.name}
+              </h3>
+              <p className="text-xs font-semibold text-red-600 dark:text-red-400 mt-0.5">
+                {mentionCardUser.position}
+              </p>
+              <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">
+                {mentionCardUser.department} • {mentionCardUser.location}
+              </p>
+
+              <div className="mt-4 w-full space-y-2 border-t border-slate-100 dark:border-slate-800 pt-4 text-left text-xs">
+                <div className="flex items-center justify-between text-slate-600 dark:text-slate-300">
+                  <span className="text-slate-400">Email Kantor:</span>
+                  <span className="font-medium">{mentionCardUser.email}</span>
+                </div>
+                <div className="flex items-center justify-between text-slate-600 dark:text-slate-300">
+                  <span className="text-slate-400">Nomor Telepon:</span>
+                  <span className="font-medium">{mentionCardUser.phone}</span>
+                </div>
+                <div className="flex items-center justify-between text-slate-600 dark:text-slate-300">
+                  <span className="text-slate-400">Status:</span>
+                  <span className="font-bold text-emerald-600 capitalize">{mentionCardUser.status}</span>
+                </div>
+              </div>
+
+              <div className="mt-5 flex gap-2 w-full">
+                <button
+                  type="button"
+                  onClick={() => {
+                    startDirectMessage(mentionCardUser.id);
+                    setMentionCardUser(null);
+                  }}
+                  className="flex-1 flex items-center justify-center gap-1.5 rounded-xl bg-red-600 px-4 py-2.5 text-xs font-bold text-white hover:bg-red-700 transition cursor-pointer"
+                >
+                  <MessageSquare className="h-4 w-4" />
+                  <span>Kirim Pesan</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMentionCardUser(null);
+                    setActiveTab('directory');
+                  }}
+                  className="rounded-xl border border-slate-200 px-4 py-2.5 text-xs font-semibold text-slate-700 hover:bg-slate-100 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800 transition cursor-pointer"
+                >
+                  Direktori
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       )}

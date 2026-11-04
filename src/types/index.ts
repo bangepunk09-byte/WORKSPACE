@@ -6,6 +6,7 @@ export interface User {
   id: string;
   name: string;
   email: string;
+  password?: string;
   avatar: string;
   role: UserRole;
   department: string;
@@ -18,7 +19,9 @@ export interface User {
   managerId?: string;
   directReports?: string[];
   joinedDate: string;
+  isDeactivated?: boolean;
   employeeId?: string;
+  nickname?: string;
   employmentType?: 'Full-time' | 'Contract' | 'Probation' | 'Intern' | 'Freelance';
   birthDate?: string;
   gender?: 'Laki-laki' | 'Perempuan';
@@ -38,11 +41,29 @@ export interface PendingUserApproval {
   id: string;
   name: string;
   email: string;
+  password?: string;
   avatar: string;
   department: string;
   position: string;
   requestedAt: string;
   status: 'pending' | 'approved' | 'rejected';
+  nickname?: string;
+  birthDate?: string;
+  employeeId?: string;
+  location?: string;
+  employmentType?: 'Full-time' | 'Contract' | 'Probation' | 'Intern' | 'Freelance';
+  phone?: string;
+  gender?: 'Laki-laki' | 'Perempuan';
+  emergencyContact?: {
+    name: string;
+    relation: string;
+    phone: string;
+  };
+  bankAccount?: {
+    bankName: string;
+    accountNumber: string;
+    accountHolder: string;
+  };
 }
 
 export type PostType = 'standard' | 'announcement' | 'poll';
@@ -63,6 +84,10 @@ export interface Comment {
   content: string;
   createdAt: string;
   likes: string[];
+  parentId?: string;
+  replyToName?: string;
+  stickerUrl?: string;
+  gifUrl?: string;
 }
 
 export interface Attachment {
@@ -84,6 +109,7 @@ export interface Post {
   pollOptions?: PollOption[];
   attachments?: Attachment[];
   likes: string[]; // user IDs
+  reactions?: { emoji: string; userIds: string[] }[];
   bookmarks: string[];
   reposts: string[];
   comments: Comment[];
@@ -240,6 +266,15 @@ export interface ActiveHuddle {
   participants: HuddleParticipant[];
   isMinimized: boolean;
   isVoiceOnly?: boolean;
+  isRecording?: boolean;
+}
+
+export interface TaskAssignee {
+  id: string;
+  name: string;
+  avatar: string;
+  dept?: string;
+  role?: string;
 }
 
 export interface Task {
@@ -248,13 +283,21 @@ export interface Task {
   description: string;
   status: TaskStatus;
   priority: TaskPriority;
+  brand?: string; // Brand label e.g. 'Asli RI', 'Movadex', 'Finova'
+  brandId?: string; // ID of ManagedBrand
+  brandLogo?: string; // Cached or direct logo URL / base64
+  brandColor?: string; // Cached brand accent hex
+  requestorId?: string; // User ID who requested the task
+  requestorName?: string;
+  requestorAvatar?: string;
   assigneeId: string;
   assigneeName: string;
   assigneeAvatar: string;
   assigneeDept: string;
+  assignees?: TaskAssignee[]; // Multiple select assignees from division
   reporterId: string;
   reporterName: string;
-  project: string;
+  project?: string;
   groupId?: string; // Department / Group ID e.g. 'tech', 'product', 'hr', 'marketing', 'finance'
   groupName?: string;
   deadline: string;
@@ -398,6 +441,19 @@ export interface BrandDriveFolder {
   isStarred?: boolean;
 }
 
+export interface ManagedBrand {
+  id: string;
+  name: string;
+  code?: string;
+  logo?: string; // Image URL or Base64 data URL
+  color: string; // Brand accent/badge color e.g. '#dc2626'
+  category?: string; // e.g. 'Identity & Biometrics', 'Fintech', 'Creative Agency'
+  description?: string;
+  website?: string;
+  isDefault?: boolean;
+  createdAt: string;
+}
+
 export type MeetingStatus = 'scheduled' | 'in_progress' | 'completed' | 'cancelled';
 
 export interface ActionItem {
@@ -479,7 +535,7 @@ export interface NotificationItem {
 
 export type AccentColor = 'navy-crimson' | 'royal-blue' | 'emerald' | 'purple' | 'amber';
 export type CardRadius = 'sharp' | 'rounded' | 'smooth' | 'pill';
-export type BackgroundPattern = 'clean' | 'dots' | 'mesh' | 'grid' | 'aurora-glow';
+export type BackgroundPattern = 'clean' | 'dots' | 'mesh' | 'grid' | 'aurora-glow' | 'solid' | 'gradient';
 
 export interface DivisionItem {
   id: string;
@@ -494,6 +550,8 @@ export interface DivisionItem {
   createdAt?: string;
 }
 
+export type FontFamilyOption = 'dm-sans' | 'helvetica' | 'segoe-ui' | 'satoshi' | 'inter';
+
 export interface ThemeSettings {
   mode: 'light' | 'dark';
   accentColor: AccentColor;
@@ -506,9 +564,12 @@ export interface ThemeSettings {
   chatBubbleColor?: 'navy' | 'red' | 'blue' | 'emerald' | 'purple' | 'amber' | 'custom';
   customChatBubbleColor?: string;
   fontSize?: 'small' | 'normal' | 'large';
+  fontFamily?: FontFamilyOption;
   buttonHoverColor?: string;
   selectorActiveColor?: string;
   iconAccentColor?: string;
+  customBgSolidColor?: string;
+  customBgGradient?: string;
 }
 
 export interface AuditLog {

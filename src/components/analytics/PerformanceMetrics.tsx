@@ -7,13 +7,18 @@ export const PerformanceMetrics: React.FC = () => {
   const { tasks, meetings } = useWorkspace();
 
   const data = useMemo(() => {
-    return [
-      { name: 'Jan', taskCompletion: 65, attendance: 80 },
-      { name: 'Feb', taskCompletion: 70, attendance: 75 },
-      { name: 'Mar', taskCompletion: 80, attendance: 85 },
-      { name: 'Apr', taskCompletion: 75, attendance: 90 },
-      { name: 'May', taskCompletion: 85, attendance: 95 },
-    ];
+    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei'];
+    const totalDone = tasks.filter(t => t.status === 'done').length;
+    const totalTasks = tasks.length;
+    const taskPct = totalTasks > 0 ? Math.round((totalDone / totalTasks) * 100) : 0;
+    const meetingCount = meetings.length;
+    const attendancePct = meetingCount > 0 ? 100 : 0;
+
+    return months.map(name => ({
+      name,
+      taskCompletion: taskPct,
+      attendance: attendancePct
+    }));
   }, [tasks, meetings]);
 
   const exportCSV = () => {

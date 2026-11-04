@@ -41,6 +41,13 @@ export const CreateMeetingModal: React.FC<{ onClose: () => void }> = ({ onClose 
       };
     });
 
+    const actionItemsFormatted = actionItemsInput
+      .filter(ai => ai.trim().length > 0)
+      .map((text, index) => ({
+        id: 'ai_' + Date.now() + '_' + index,
+        text: text.trim()
+      }));
+
     createMeeting({
       title,
       description,
@@ -54,7 +61,7 @@ export const CreateMeetingModal: React.FC<{ onClose: () => void }> = ({ onClose 
       organizerAvatar: currentUser.avatar,
       attendees,
       agenda: agendaInput.filter(a => a.trim().length > 0),
-      actionItemsText: actionItemsInput.filter(ai => ai.trim().length > 0),
+      actionItems: actionItemsFormatted,
       status: 'scheduled'
     });
 

@@ -25,6 +25,7 @@ import { useWorkspace } from '../../context/WorkspaceContext';
 import { ThemeToggle } from '../common/ThemeToggle';
 import { PWAInstallButton } from '../common/PWAInstallButton';
 import { SoundControlPopover } from '../common/SoundControlPopover';
+import { NotificationQuickPopup } from './NotificationQuickPopup';
 
 interface NavbarProps {
   onMobileMenuToggle: () => void;
@@ -48,10 +49,12 @@ export const Navbar: React.FC<NavbarProps> = ({ onMobileMenuToggle, isMobileMenu
     workspaceInfo,
     logout,
     toggleRightNotifications,
-    setIsDbHubOpen
+    setIsDbHubOpen,
+    pendingApprovals
   } = useWorkspace();
 
   const [isNotifOpen, setIsNotifOpen] = useState(false);
+  const [isQuickPopupOpen, setIsQuickPopupOpen] = useState(false);
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
   const [isRolePickerOpen, setIsRolePickerOpen] = useState(false);
   const [isQuickActionOpen, setIsQuickActionOpen] = useState(false);
@@ -61,11 +64,31 @@ export const Navbar: React.FC<NavbarProps> = ({ onMobileMenuToggle, isMobileMenu
   const rolePickerRef = useRef<HTMLDivElement>(null);
   const quickActionRef = useRef<HTMLDivElement>(null);
 
+  // Auto trigger notification quick popup on access request or new notification
+  const pendingRequestsCount = pendingApprovals.filter(p => p.status === 'pending').length;
+  const prevPendingCountRef = useRef(pendingRequestsCount);
+  const prevNotifCountRef = useRef(notifications.length);
+
+  useEffect(() => {
+    if (pendingRequestsCount > 0) {
+      setIsQuickPopupOpen(true);
+    }
+    prevPendingCountRef.current = pendingRequestsCount;
+  }, [pendingRequestsCount]);
+
+  useEffect(() => {
+    if (notifications.length > prevNotifCountRef.current && unreadNotificationsCount > 0) {
+      setIsQuickPopupOpen(true);
+    }
+    prevNotifCountRef.current = notifications.length;
+  }, [notifications.length, unreadNotificationsCount]);
+
   // Close popups on click outside
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
       if (notifRef.current && !notifRef.current.contains(e.target as Node)) {
         setIsNotifOpen(false);
+        setIsQuickPopupOpen(false);
       }
       if (userMenuRef.current && !userMenuRef.current.contains(e.target as Node)) {
         setIsUserMenuOpen(false);
@@ -128,9 +151,10 @@ export const Navbar: React.FC<NavbarProps> = ({ onMobileMenuToggle, isMobileMenu
         <div className="relative" ref={quickActionRef}>
           <button
             onClick={() => setIsQuickActionOpen(!isQuickActionOpen)}
-            className="flex items-center gap-1.5 rounded-full bg-slate-950 px-3.5 py-2 text-xs font-bold text-white shadow-sm transition hover:bg-black active:scale-95 sm:text-xs border border-slate-800"
+            style={{ backgroundColor: themeSettings.selectorActiveColor || '#0f172a' }}
+            className="flex items-center gap-1.5 rounded-full px-3.5 py-2 text-xs font-bold text-white shadow-sm transition active:scale-95 sm:text-xs border border-white/15 cursor-pointer"
           >
-            <Plus className="h-3.5 w-3.5 text-red-500" />
+            <Plus className="h-3.5 w-3.5" style={{ color: themeSettings.iconAccentColor || '#dc2626' }} />
             <span className="hidden sm:inline">Buat Baru</span>
             <ChevronDown className="h-3 w-3 opacity-80" />
           </button>
@@ -279,23 +303,35 @@ export const Navbar: React.FC<NavbarProps> = ({ onMobileMenuToggle, isMobileMenu
         {/* Theme mode toggle */}
         <ThemeToggle />
 
-        {/* Notification Center Trigger (Right Drawer) */}
-        <button
-          onClick={() => {
-            toggleRightNotifications();
-            markAllAsRead();
-          }}
-          className="relative flex items-center justify-center rounded-xl p-2 text-slate-600 transition hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800"
-          aria-label="Buka Notifikasi"
-          title="Notifikasi"
-        >
-          <Bell className="h-5 w-5" />
-          {unreadNotificationsCount > 0 && (
-            <span className="absolute -top-0.5 -right-0.5 flex h-4 min-w-4 px-1 items-center justify-center rounded-full bg-red-600 text-[10px] font-bold text-white ring-2 ring-white dark:ring-slate-900 pointer-events-none">
-              {unreadNotificationsCount}
-            </span>
-          )}
-        </button>
+        {/* Notification Bell with Animated Quick Popup & Drawer */}
+        <div className="relative" ref={notifRef}>
+          <button
+            onClick={() => {
+              if (pendingRequestsCount > 0 || unreadNotificationsCount > 0) {
+                setIsQuickPopupOpen(!isQuickPopupOpen);
+              } else {
+                toggleRightNotifications();
+                markAllAsRead();
+              }
+            }}
+            className="relative flex items-center justify-center rounded-xl p-2 text-slate-600 transition hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800 cursor-pointer"
+            aria-label="Buka Notifikasi"
+            title={pendingRequestsCount > 0 ? "Ada permintaan akses pending!" : "Notifikasi"}
+          >
+            <Bell className={`h-5 w-5 transition-transform ${pendingRequestsCount > 0 ? 'text-red-600 dark:text-red-400 animate-bounce-subtle' : ''}`} />
+            {(unreadNotificationsCount > 0 || pendingRequestsCount > 0) && (
+              <span className="absolute -top-0.5 -right-0.5 flex h-4 min-w-4 px-1 items-center justify-center rounded-full bg-red-600 text-[10px] font-bold text-white ring-2 ring-white dark:ring-slate-900 pointer-events-none animate-pulse">
+                {unreadNotificationsCount + pendingRequestsCount}
+              </span>
+            )}
+          </button>
+
+          {/* Animated Quick Action Notification Popup */}
+          <NotificationQuickPopup
+            isOpen={isQuickPopupOpen}
+            onClose={() => setIsQuickPopupOpen(false)}
+          />
+        </div>
 
         {/* Profile Avatar & dropdown menu */}
         <div className="relative" ref={userMenuRef}>

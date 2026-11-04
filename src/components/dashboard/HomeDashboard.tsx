@@ -30,6 +30,9 @@ import {
 import { useWorkspace } from '../../context/WorkspaceContext';
 import { ProductivityTrendsChart } from './ProductivityTrendsChart';
 import { MemberWorkloadStats } from './MemberWorkloadStats';
+import { WeatherWidget } from './WeatherWidget';
+import { PerformanceStatsWidget } from './PerformanceStatsWidget';
+
 import {
   CustomizeOverviewModal,
   OverviewWidgetConfig,
@@ -163,10 +166,7 @@ export const HomeDashboard: React.FC = () => {
       t.status === 'done';
     return isThisMonth || isActiveOrDone;
   });
-  const tasksWorkedCount =
-    tasksWorkedThisMonth.length > 0
-      ? tasksWorkedThisMonth.length
-      : doneTasks.length + inProgressTasks.length || 18;
+  const tasksWorkedCount = tasksWorkedThisMonth.length;
 
   const upcomingMeetings = [...meetings]
     .sort((a, b) => (a.date + a.startTime).localeCompare(b.date + b.startTime))
@@ -262,11 +262,11 @@ export const HomeDashboard: React.FC = () => {
           <div className="relative z-10 flex flex-col lg:flex-row lg:items-center justify-between gap-6">
             <div className="space-y-3">
               <div className="flex items-center gap-2">
-                <span className="chip-sky rounded-full px-3 py-1 text-xs font-bold inline-flex items-center gap-1.5 shadow-2xs hover:scale-102 transition-transform">
+                <span className="chip-sky rounded-full px-3.5 py-1 text-xs font-bold inline-flex items-center gap-1.5 shadow-2xs hover:scale-102 transition-transform">
                   <Sparkles className="h-3.5 w-3.5" />
                   <span>WORKSPACE Corporate Hub</span>
                 </span>
-                <span className="chip-emerald rounded-full px-2.5 py-0.5 text-[11px] font-bold inline-flex items-center gap-1">
+                <span className="chip-emerald rounded-full px-3.5 py-1 text-xs font-bold inline-flex items-center gap-1.5 shadow-2xs hover:scale-102 transition-transform">
                   <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
                   <span>Sistem Normal</span>
                 </span>
@@ -328,16 +328,6 @@ export const HomeDashboard: React.FC = () => {
               </div>
 
               <div className="flex flex-wrap items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => setIsQuickSearchOpen(true)}
-                  className="btn-gradient-ai rounded-2xl px-4 py-2 text-xs font-bold flex items-center gap-1.5 cursor-pointer shadow-md shadow-red-500/10 hover:shadow-red-500/25 transition active:scale-95"
-                  title="Buka AI Search & Spotlight Copilot"
-                >
-                  <Sparkles className="h-3.5 w-3.5 text-amber-300 animate-spin-slow" />
-                  <span>Tanya AI & Cari</span>
-                </button>
-
                 <button
                   type="button"
                   onClick={() => setIsDbHubOpen(true)}
@@ -405,15 +395,6 @@ export const HomeDashboard: React.FC = () => {
                   {meetings.length} Sesi
                 </span>
               </div>
-              <button
-                type="button"
-                onClick={() => setQuickActionModal('meeting')}
-                className="inline-flex items-center gap-1 rounded-xl bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 text-xs font-bold shadow-2xs transition active:scale-95 cursor-pointer"
-                title="Tambah Jadwal Meeting Baru"
-              >
-                <Plus className="h-3.5 w-3.5" />
-                <span>+ Add</span>
-              </button>
             </div>
 
             <div className="space-y-2.5 max-h-[340px] overflow-y-auto pr-0.5">
@@ -528,60 +509,68 @@ export const HomeDashboard: React.FC = () => {
             </div>
 
             <div className="space-y-3 mt-4">
-              {tasks.slice(0, 3).map(task => {
-                const isUrgent = task.priority === 'urgent';
-                const isDone = task.status === 'done';
+              {tasks.length === 0 ? (
+                <div className="py-8 text-center text-xs text-slate-400 space-y-2">
+                  <CheckSquare className="h-8 w-8 mx-auto opacity-40 text-slate-400" />
+                  <p className="font-bold text-slate-700 dark:text-slate-300">Belum ada tugas prioritas</p>
+                  <p className="text-[11px]">Klik "+ Tambah Item Tugas Baru" untuk memulai.</p>
+                </div>
+              ) : (
+                tasks.slice(0, 3).map(task => {
+                  const isUrgent = task.priority === 'urgent';
+                  const isDone = task.status === 'done';
 
-                return (
-                  <div
-                    key={task.id}
-                    className="p-3.5 rounded-2xl border border-slate-100 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-800/40 hover:bg-slate-100/70 dark:hover:bg-slate-800/80 transition space-y-2 group"
-                  >
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="min-w-0 flex-1">
-                        <div className="flex items-center gap-1.5 flex-wrap">
-                          <span
-                            className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${
-                              isUrgent ? 'chip-rose' : task.priority === 'high' ? 'chip-orange' : 'chip-sky'
-                            }`}
-                          >
-                            {task.priority.toUpperCase()}
-                          </span>
-                          <span className="chip-purple rounded-full px-2 py-0.5 text-[10px] font-semibold">
-                            {task.project.split(' ')[0]}
-                          </span>
+                  return (
+                    <div
+                      key={task.id}
+                      className="p-3.5 rounded-2xl border border-slate-100 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-800/40 hover:bg-slate-100/70 dark:hover:bg-slate-800/80 transition space-y-2 group"
+                    >
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <span
+                              className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${
+                                isUrgent ? 'chip-rose' : task.priority === 'high' ? 'chip-orange' : 'chip-sky'
+                              }`}
+                            >
+                              {task.priority.toUpperCase()}
+                            </span>
+                            <span className="chip-purple rounded-full px-2 py-0.5 text-[10px] font-semibold">
+                              {(task.brand || task.project || 'Asli RI').split(' ')[0]}
+                            </span>
+                          </div>
+                          <h4 className="text-xs font-bold text-slate-900 dark:text-white mt-1.5 truncate group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
+                            {task.title}
+                          </h4>
                         </div>
-                        <h4 className="text-xs font-bold text-slate-900 dark:text-white mt-1.5 truncate group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
-                          {task.title}
-                        </h4>
+
+                        <button
+                          type="button"
+                          onClick={() => moveTaskStatus(task.id, isDone ? 'in_progress' : 'done')}
+                          title={isDone ? 'Buka kembali' : 'Tandai selesai'}
+                          className={`h-7 w-7 rounded-full flex items-center justify-center shrink-0 transition active:scale-90 cursor-pointer ${
+                            isDone
+                              ? 'bg-emerald-500 text-white'
+                              : 'border-2 border-slate-300 dark:border-slate-600 text-transparent hover:border-emerald-500 hover:text-emerald-500'
+                          }`}
+                        >
+                          <CheckCircle2 className="h-4 w-4" />
+                        </button>
                       </div>
 
-                      <button
-                        type="button"
-                        onClick={() => moveTaskStatus(task.id, isDone ? 'in_progress' : 'done')}
-                        title={isDone ? 'Buka kembali' : 'Tandai selesai'}
-                        className={`h-7 w-7 rounded-full flex items-center justify-center shrink-0 transition active:scale-90 cursor-pointer ${
-                          isDone
-                            ? 'bg-emerald-500 text-white'
-                            : 'border-2 border-slate-300 dark:border-slate-600 text-transparent hover:border-emerald-500 hover:text-emerald-500'
-                        }`}
-                      >
-                        <CheckCircle2 className="h-4 w-4" />
-                      </button>
+                      <div className="flex items-center justify-between text-[11px] text-slate-500 dark:text-slate-400 pt-1">
+                        <span className="flex items-center gap-1">
+                          <Clock className="h-3 w-3" />
+                          <span>Deadline: {task.deadline}</span>
+                        </span>
+                        <span className="font-semibold text-slate-700 dark:text-slate-300">
+                          {task.checklists.filter(c => c.completed).length}/{task.checklists.length} Checklist
+                        </span>
+                      </div>
                     </div>
-
-                    <div className="flex items-center justify-between text-[11px] text-slate-500 dark:text-slate-400 pt-1">
-                      <span className="flex items-center gap-1">
-                        <Clock className="h-3 w-3" />
-                        <span>Deadline: {task.deadline}</span>
-                      </span>
-                      <span className="font-semibold text-slate-700 dark:text-slate-300">
-                        {task.checklists.filter(c => c.completed).length}/{task.checklists.length} Checklist
-                      </span>
-                    </div>
-                  </div>
-                );
-              })}
+                  );
+                })
+              )}
             </div>
           </div>
 
@@ -893,6 +882,28 @@ export const HomeDashboard: React.FC = () => {
     );
   };
 
+  // 9. Cuaca Hari Ini
+  const renderWeatherWidget = (index: number) => {
+    if (!overviewConfig.showWeather) return null;
+    return (
+      <div key="showWeather" className="col-span-12 md:col-span-6 lg:col-span-4 relative animate-in fade-in duration-300">
+        {renderWidgetToolbar('showWeather', index, 'Cuaca Hari Ini')}
+        <WeatherWidget />
+      </div>
+    );
+  };
+
+  // 10. Statistik Performa Pribadi
+  const renderPerformanceStatsWidget = (index: number) => {
+    if (!overviewConfig.showPerformanceStats) return null;
+    return (
+      <div key="showPerformanceStats" className="col-span-12 md:col-span-6 lg:col-span-4 relative animate-in fade-in duration-300">
+        {renderWidgetToolbar('showPerformanceStats', index, 'Statistik Performa Pribadi')}
+        <PerformanceStatsWidget />
+      </div>
+    );
+  };
+
   // Dispatcher for each widget key
   const renderWidgetByKey = (key: OverviewWidgetKey, index: number) => {
     switch (key) {
@@ -912,6 +923,10 @@ export const HomeDashboard: React.FC = () => {
         return renderMemberWorkload(index);
       case 'showDocumentsSection':
         return renderDocumentsSection(index);
+      case 'showWeather':
+        return renderWeatherWidget(index);
+      case 'showPerformanceStats':
+        return renderPerformanceStatsWidget(index);
       default:
         return null;
     }
@@ -930,21 +945,6 @@ export const HomeDashboard: React.FC = () => {
           </p>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
-          {/* Quick Layout Mode Toggle */}
-          <button
-            type="button"
-            onClick={() => setIsLayoutMode(!isLayoutMode)}
-            className={`inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold transition shadow-2xs cursor-pointer active:scale-95 ${
-              isLayoutMode
-                ? 'bg-blue-600 text-white ring-2 ring-blue-400 shadow-blue-500/20'
-                : 'border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700'
-            }`}
-            title="Ubah posisi urutan widget secara langsung pada halaman"
-          >
-            <Layers className="h-3.5 w-3.5" />
-            <span>{isLayoutMode ? 'Selesai Mengatur' : 'Atur Tata Letak'}</span>
-          </button>
-
           {/* Full Customization Modal Button */}
           <button
             type="button"

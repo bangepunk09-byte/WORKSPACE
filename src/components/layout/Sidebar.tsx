@@ -107,7 +107,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen, onCloseMobile })
       id: 'drive',
       label: 'Brand Google Drive',
       icon: FolderGit2,
-      badge: { text: 'Enterprise', color: 'bg-blue-600 text-white' }
+      badge: null
     },
     {
       id: 'directory',
@@ -119,7 +119,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen, onCloseMobile })
       id: 'admin',
       label: 'Admin & Customization',
       icon: ShieldCheck,
-      badge: currentUser.role === 'super_admin' ? { text: 'Super', color: 'bg-slate-900 text-white border border-slate-700 dark:bg-red-950 dark:text-red-300' } : null
+      badge: null
     }
   ];
 
@@ -222,16 +222,28 @@ export const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen, onCloseMobile })
                 key={item.id}
                 onClick={() => handleNavClick(item.id)}
                 title={isCollapsed ? item.label : undefined}
-                className={`group flex w-full items-center gap-3 rounded-2xl px-3 py-2.5 text-xs font-semibold transition-all duration-300 ease-out hover:scale-[1.015] active:scale-[0.98] ${
+                className={`group flex w-full items-center gap-3 rounded-2xl px-3 py-2.5 text-xs font-semibold transition-all duration-200 ease-out hover:scale-[1.015] active:scale-[0.98] ${
                   isActive
-                    ? 'bg-slate-950 text-white shadow-sm dark:bg-white dark:text-slate-950 font-bold border border-slate-900 dark:border-white'
-                    : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900 dark:text-slate-300 dark:hover:bg-slate-800/90 dark:hover:text-white'
+                    ? 'theme-active-selector font-bold shadow-md border'
+                    : 'interactive-hover-btn text-slate-600 hover:bg-slate-100 hover:text-slate-900 dark:text-slate-300 dark:hover:bg-slate-800/90 dark:hover:text-white'
                 } ${isCollapsed ? 'justify-center px-2' : ''}`}
+                style={
+                  isActive
+                    ? {
+                        backgroundColor: 'var(--selector-active-color, #0f172a)',
+                        borderColor: 'var(--selector-active-color, #0f172a)',
+                        color: '#ffffff'
+                      }
+                    : undefined
+                }
               >
                 <Icon
-                  className={`h-4.5 w-4.5 shrink-0 transition-transform group-hover:scale-110 ${
-                    isActive ? 'text-red-400 dark:text-red-600' : 'text-slate-400 group-hover:text-slate-700 dark:text-slate-400 dark:group-hover:text-slate-200'
-                  }`}
+                  className="h-4.5 w-4.5 shrink-0 transition-transform group-hover:scale-110"
+                  style={
+                    isActive
+                      ? { color: 'var(--icon-accent-color, #dc2626)' }
+                      : undefined
+                  }
                 />
                 {!isCollapsed && (
                   <>

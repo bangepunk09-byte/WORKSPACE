@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   X,
   CheckSquare,
@@ -9,27 +9,75 @@ import {
   Image as ImageIcon,
   Link as LinkIcon,
   Trash2,
-  Sparkles
+  Sparkles,
+  Tag,
+  UserCheck,
+  Building2,
+  Check
 } from 'lucide-react';
 import { useWorkspace } from '../../context/WorkspaceContext';
-import { TaskPriority, TaskStatus, VideoDraftScene, SlideDraftItem, PosterDraftItem, CreativeBriefFormat } from '../../types';
+import { TaskPriority, TaskStatus, VideoDraftScene, SlideDraftItem, PosterDraftItem, CreativeBriefFormat, TaskAssignee } from '../../types';
 
 export const CreateTaskModal: React.FC<{ onClose: () => void }> = ({ onClose }) => {
-  const { currentUser, users, createTask, divisions, selectedTaskGroup } = useWorkspace();
+  const { currentUser, users, createTask, divisions, selectedTaskGroup, managedBrands, setIsBrandModalOpen } = useWorkspace();
 
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
-  const [project, setProject] = useState('');
+  const [brand, setBrand] = useState(() => managedBrands[0]?.name || 'Asli RI');
+  const [customBrand, setCustomBrand] = useState('');
+  const [requestorId, setRequestorId] = useState(currentUser.id);
   const [divisionId, setDivisionId] = useState<string>(() => {
     if (selectedTaskGroup && selectedTaskGroup !== 'all') return selectedTaskGroup;
     return divisions[0]?.id || 'tech';
   });
   const [priority, setPriority] = useState<TaskPriority>('medium');
   const [status, setStatus] = useState<TaskStatus>('not_started');
-  const [assigneeId, setAssigneeId] = useState(currentUser.id);
   const [deadline, setDeadline] = useState('');
   const [labelsInput, setLabelsInput] = useState('');
   const [checklists, setChecklists] = useState(['']);
+
+  // Candidate users belonging to the selected division
+  const targetDivision = divisions.find(d => d.id === divisionId) || divisions[0];
+  const divisionUsers = users.filter(u => {
+    if (!targetDivision) return true;
+    const match = (targetDivision.departmentMatch || targetDivision.name).toLowerCase();
+    const userDept = (u.department || '').toLowerCase();
+    return userDept.includes(match) || match.includes(userDept);
+  });
+  const candidateUsers = divisionUsers.length > 0 ? divisionUsers : users;
+
+  // Multi-select assignees from this division
+  const [selectedAssigneeIds, setSelectedAssigneeIds] = useState<string[]>(() => {
+    return [candidateUsers[0]?.id || currentUser.id];
+  });
+
+  // When division changes, ensure at least one assignee is selected from candidate users
+  useEffect(() => {
+    const validIds = selectedAssigneeIds.filter(id => candidateUsers.some(u => u.id === id));
+    if (validIds.length === 0 && candidateUsers.length > 0) {
+      setSelectedAssigneeIds([candidateUsers[0].id]);
+    }
+  }, [divisionId]);
+
+  // Support ESC key to close modal
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [onClose]);
+
+  const toggleAssignee = (userId: string) => {
+    setSelectedAssigneeIds(prev => {
+      if (prev.includes(userId)) {
+        if (prev.length === 1) return prev; // keep at least one
+        return prev.filter(id => id !== userId);
+      } else {
+        return [...prev, userId];
+      }
+    });
+  };
 
   // Creative Brief Format state (Default to 'poster')
   const [briefFormat, setBriefFormat] = useState<CreativeBriefFormat>('poster');
@@ -94,25 +142,51 @@ export const CreateTaskModal: React.FC<{ onClose: () => void }> = ({ onClose }) 
     e.preventDefault();
     if (!title.trim()) return;
 
-    const assignee = users.find(u => u.id === assigneeId) || currentUser;
-    const targetDivision = divisions.find(d => d.id === divisionId) || divisions[0];
+    const chosenBrand = customBrand.trim() || brand;
+    const requestor = users.find(u => u.id === requestorId) || currentUser;
+    const selectedUsers = candidateUsers.filter(u => selectedAssigneeIds.includes(u.id));
+    const primaryAssignee = selectedUsers[0] || candidateUsers[0] || currentUser;
+
+    const assigneesList: TaskAssignee[] = (selectedUsers.length > 0 ? selectedUsers : [primaryAssignee]).map(u => ({
+      id: u.id,
+      name: u.name,
+      avatar: u.avatar,
+      dept: u.department,
+      role: u.role
+    }));
+
+    const finalLabels = Array.from(new Set([
+      chosenBrand,
+      ...labelsInput.split(',').map(l => l.trim()).filter(Boolean)
+    ]));
+
+    const matchedBrandObj = managedBrands.find(
+      b => b.name.toLowerCase() === chosenBrand.toLowerCase()
+    );
 
     createTask({
-      title,
-      description,
-      project,
+      title: title.trim(),
+      description: description.trim(),
+      brand: chosenBrand,
+      brandId: matchedBrandObj?.id,
+      brandLogo: matchedBrandObj?.logo,
+      brandColor: matchedBrandObj?.color,
       status,
       priority,
-      assigneeId: assignee.id,
-      assigneeName: assignee.name,
-      assigneeAvatar: assignee.avatar,
-      assigneeDept: targetDivision?.departmentMatch || assignee.department,
+      requestorId: requestor.id,
+      requestorName: requestor.name,
+      requestorAvatar: requestor.avatar,
+      assigneeId: primaryAssignee.id,
+      assigneeName: primaryAssignee.name,
+      assigneeAvatar: primaryAssignee.avatar,
+      assigneeDept: targetDivision?.departmentMatch || primaryAssignee.department,
+      assignees: assigneesList,
       groupId: targetDivision?.id || 'tech',
       groupName: targetDivision?.name || 'Technology & Engineering',
-      reporterId: currentUser.id,
-      reporterName: currentUser.name,
+      reporterId: requestor.id,
+      reporterName: requestor.name,
       deadline,
-      labels: labelsInput.split(',').map(l => l.trim()).filter(Boolean),
+      labels: finalLabels,
       checklists: checklists
         .filter(c => c.trim().length > 0)
         .map((text, idx) => ({
@@ -141,8 +215,8 @@ export const CreateTaskModal: React.FC<{ onClose: () => void }> = ({ onClose }) 
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/70 backdrop-blur-xs">
-      <div className="w-full max-w-3xl rounded-3xl bg-white p-5 sm:p-6 shadow-2xl dark:bg-slate-900 border border-slate-200 dark:border-slate-800 max-h-[92vh] overflow-y-auto animate-in fade-in zoom-in-95 duration-150">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 md:p-8 bg-slate-950/70 backdrop-blur-xs overflow-y-auto">
+      <div className="w-full max-w-3xl my-auto rounded-3xl bg-white p-5 sm:p-7 shadow-2xl dark:bg-slate-900 border border-slate-200 dark:border-slate-800 max-h-[86vh] overflow-y-auto animate-in fade-in zoom-in-95 duration-150">
         <div className="flex items-center justify-between border-b border-slate-100 pb-3 dark:border-slate-800">
           <div className="flex items-center gap-2.5">
             <div className="flex h-9 w-9 items-center justify-center rounded-2xl bg-red-600 text-white shadow-xs">
@@ -157,16 +231,20 @@ export const CreateTaskModal: React.FC<{ onClose: () => void }> = ({ onClose }) 
               </p>
             </div>
           </div>
-          <button onClick={onClose} className="rounded-xl p-1.5 text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer">
+          <button
+            onClick={onClose}
+            className="rounded-xl p-1.5 text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer"
+            title="Tutup (Esc)"
+          >
             <X className="h-5 w-5" />
           </button>
         </div>
 
         <form onSubmit={handleSubmit} className="mt-4 space-y-4 text-xs">
-          {/* Title */}
+          {/* Judul Tugas */}
           <div>
             <label className="font-bold text-slate-700 dark:text-slate-300 block mb-1">
-              Judul Tugas / Campaign *
+              Judul Tugas *
             </label>
             <input
               type="text"
@@ -178,23 +256,64 @@ export const CreateTaskModal: React.FC<{ onClose: () => void }> = ({ onClose }) 
             />
           </div>
 
-          {/* Project & Deadline */}
+          {/* Label Brand & Tenggat Waktu (Workspace/Proyek removed) */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
-              <label className="font-bold text-slate-700 dark:text-slate-300 block mb-1">
-                Workspace / Proyek
+              <label className="font-bold text-slate-700 dark:text-slate-300 block mb-1 flex items-center gap-1.5">
+                <Tag className="h-3.5 w-3.5 text-red-600" />
+                <span>Label Brand</span>
               </label>
-              <input
-                type="text"
-                placeholder="cth: Campaign Creative & Video"
-                value={project}
-                onChange={e => setProject(e.target.value)}
-                className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-3.5 py-2 text-xs font-semibold focus:border-red-500 focus:outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-white shadow-2xs"
-              />
+              <div className="space-y-1.5">
+                <div className="flex flex-wrap items-center gap-1.5">
+                  {managedBrands.map(b => (
+                    <button
+                      key={b.id}
+                      type="button"
+                      onClick={() => { setBrand(b.name); setCustomBrand(''); }}
+                      className={`flex items-center gap-1.5 px-2.5 py-1 rounded-xl text-[11px] font-bold border transition cursor-pointer ${
+                        brand === b.name && !customBrand
+                          ? 'bg-red-600 text-white border-red-600 shadow-2xs'
+                          : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700'
+                      }`}
+                    >
+                      {b.logo ? (
+                        <img
+                          src={b.logo}
+                          alt={b.name}
+                          className="h-3.5 w-3.5 rounded-full object-cover shrink-0"
+                        />
+                      ) : (
+                        <span
+                          className="h-2 w-2 rounded-full shrink-0"
+                          style={{ backgroundColor: b.color }}
+                        />
+                      )}
+                      <span>{b.name}</span>
+                    </button>
+                  ))}
+                  <button
+                    type="button"
+                    onClick={() => setIsBrandModalOpen(true)}
+                    className="flex items-center gap-1 px-2 py-1 rounded-xl text-[10px] font-bold border border-dashed border-red-300 text-red-600 hover:bg-red-50 dark:border-red-900/60 dark:text-red-400 dark:hover:bg-red-950/30 transition cursor-pointer"
+                    title="Buka panel manajemen brand & pasang logo kustom"
+                  >
+                    <Plus className="h-3 w-3" />
+                    <span>Kelola Brand</span>
+                  </button>
+                </div>
+                <input
+                  type="text"
+                  placeholder="Atau ketik nama brand kustom..."
+                  value={customBrand}
+                  onChange={e => setCustomBrand(e.target.value)}
+                  className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs font-semibold focus:border-red-500 focus:outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-white"
+                />
+              </div>
             </div>
+
             <div>
               <label className="font-bold text-slate-700 dark:text-slate-300 block mb-1">
-                Tenggat Waktu (Deadline)
+                Tenggat Waktu
               </label>
               <input
                 type="date"
@@ -205,42 +324,93 @@ export const CreateTaskModal: React.FC<{ onClose: () => void }> = ({ onClose }) 
             </div>
           </div>
 
-          {/* Division / Department Selection */}
-          <div>
-            <label className="font-bold text-slate-700 dark:text-slate-300 block mb-1">
-              Divisi / Tim Pelaksana *
-            </label>
-            <select
-              value={divisionId}
-              onChange={e => setDivisionId(e.target.value)}
-              className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-3.5 py-2 text-xs font-semibold focus:border-red-500 focus:outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-white shadow-2xs cursor-pointer"
-            >
-              {divisions.map(d => (
-                <option key={d.id} value={d.id}>
-                  {d.name} ({d.leadName})
-                </option>
-              ))}
-            </select>
-          </div>
-
-          {/* Assignee, Priority, Status */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          {/* Requestor & Divisi Pelaksana */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
-              <label className="font-bold text-slate-700 dark:text-slate-300 block mb-1">
-                Penanggung Jawab (Assignee)
+              <label className="font-bold text-slate-700 dark:text-slate-300 block mb-1 flex items-center gap-1.5">
+                <UserCheck className="h-3.5 w-3.5 text-blue-600" />
+                <span>Requestor</span>
               </label>
               <select
-                value={assigneeId}
-                onChange={e => setAssigneeId(e.target.value)}
-                className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-semibold focus:border-red-500 focus:outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-white shadow-2xs cursor-pointer"
+                value={requestorId}
+                onChange={e => setRequestorId(e.target.value)}
+                className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-3.5 py-2 text-xs font-semibold focus:border-red-500 focus:outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-white shadow-2xs cursor-pointer"
               >
                 {users.map(u => (
                   <option key={u.id} value={u.id}>
-                    {u.name} ({u.role})
+                    {u.name}
                   </option>
                 ))}
               </select>
             </div>
+
+            <div>
+              <label className="font-bold text-slate-700 dark:text-slate-300 block mb-1 flex items-center gap-1.5">
+                <Building2 className="h-3.5 w-3.5 text-purple-600" />
+                <span>Divisi Pelaksana *</span>
+              </label>
+              <select
+                value={divisionId}
+                onChange={e => setDivisionId(e.target.value)}
+                className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-3.5 py-2 text-xs font-semibold focus:border-red-500 focus:outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-white shadow-2xs cursor-pointer"
+              >
+                {divisions.map(d => (
+                  <option key={d.id} value={d.id}>
+                    {d.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          {/* Penanggung Jawab Multi-select (Orang di divisi tersebut) */}
+          <div>
+            <div className="flex items-center justify-between mb-1.5">
+              <label className="font-bold text-slate-700 dark:text-slate-300">
+                Penanggung Jawab ({candidateUsers.length} anggota di {targetDivision?.name || 'divisi'})
+              </label>
+              <span className="text-[11px] text-slate-400">
+                {selectedAssigneeIds.length} orang terpilih (dapat pilih lebih dari 1)
+              </span>
+            </div>
+            
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2 p-3 rounded-2xl border border-slate-200 bg-slate-50 dark:border-slate-800 dark:bg-slate-800/50 max-h-48 overflow-y-auto">
+              {candidateUsers.map(u => {
+                const isSelected = selectedAssigneeIds.includes(u.id);
+                return (
+                  <button
+                    key={u.id}
+                    type="button"
+                    onClick={() => toggleAssignee(u.id)}
+                    className={`flex items-center gap-2 p-2 rounded-xl border text-left transition cursor-pointer ${
+                      isSelected
+                        ? 'border-red-500 bg-red-50/80 dark:bg-red-950/40 text-red-900 dark:text-red-200 shadow-2xs'
+                        : 'border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-800 hover:bg-slate-100 text-slate-700 dark:text-slate-300'
+                    }`}
+                  >
+                    <img
+                      src={u.avatar}
+                      alt={u.name}
+                      className="h-6 w-6 rounded-full object-cover shrink-0 ring-1 ring-slate-200 dark:ring-slate-700"
+                    />
+                    <div className="min-w-0 flex-1">
+                      <div className="font-bold truncate text-[11px]">{u.name}</div>
+                    </div>
+                    {isSelected ? (
+                      <div className="h-4 w-4 rounded-full bg-red-600 text-white flex items-center justify-center shrink-0">
+                        <Check className="h-2.5 w-2.5" />
+                      </div>
+                    ) : (
+                      <div className="h-4 w-4 rounded-full border border-slate-300 dark:border-slate-600 shrink-0" />
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Prioritas & Tahap Flow */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <label className="font-bold text-slate-700 dark:text-slate-300 block mb-1">
                 Prioritas
@@ -250,10 +420,10 @@ export const CreateTaskModal: React.FC<{ onClose: () => void }> = ({ onClose }) 
                 onChange={e => setPriority(e.target.value as TaskPriority)}
                 className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-semibold focus:border-red-500 focus:outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-white shadow-2xs cursor-pointer"
               >
-                <option value="urgent">Urgent (Tinggi Sekali)</option>
-                <option value="high">High (Tinggi)</option>
-                <option value="medium">Medium (Sedang)</option>
-                <option value="low">Low (Rendah)</option>
+                <option value="urgent">Urgent</option>
+                <option value="high">High</option>
+                <option value="medium">Medium</option>
+                <option value="low">Low</option>
               </select>
             </div>
             <div>

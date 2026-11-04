@@ -29,32 +29,98 @@ export const ProductivityTrendsChart: React.FC = () => {
 
   const isDark = themeSettings.mode === 'dark';
 
-  // 7-day weekly dataset
-  const weeklyData: DataPoint[] = [
-    { period: 'Senin', completed: 8, overdue: 1, target: 10, rate: 89 },
-    { period: 'Selasa', completed: 14, overdue: 0, target: 12, rate: 100 },
-    { period: 'Rabu', completed: 11, overdue: 2, target: 12, rate: 85 },
-    { period: 'Kamis', completed: 16, overdue: 1, target: 14, rate: 94 },
-    { period: 'Jumat', completed: 18, overdue: 0, target: 15, rate: 100 },
-    { period: 'Sabtu', completed: 4, overdue: 0, target: 4, rate: 100 },
-    { period: 'Minggu', completed: 2, overdue: 0, target: 2, rate: 100 },
-  ];
+  // Dynamic 7-day weekly dataset calculated from real tasks
+  const dynamicWeeklyData: DataPoint[] = React.useMemo(() => {
+    const days = ['Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu', 'Minggu'];
+    const dayMap: Record<string, { completed: number; overdue: number }> = {
+      Senin: { completed: 0, overdue: 0 },
+      Selasa: { completed: 0, overdue: 0 },
+      Rabu: { completed: 0, overdue: 0 },
+      Kamis: { completed: 0, overdue: 0 },
+      Jumat: { completed: 0, overdue: 0 },
+      Sabtu: { completed: 0, overdue: 0 },
+      Minggu: { completed: 0, overdue: 0 },
+    };
 
-  // 4-week monthly dataset
-  const monthlyData: DataPoint[] = [
-    { period: 'Minggu 1', completed: 42, overdue: 6, target: 45, rate: 88 },
-    { period: 'Minggu 2', completed: 58, overdue: 4, target: 50, rate: 94 },
-    { period: 'Minggu 3', completed: 64, overdue: 3, target: 60, rate: 96 },
-    { period: 'Minggu 4 (Aktif)', completed: 73, overdue: 2, target: 70, rate: 97 },
-  ];
+    const nowStr = new Date().toISOString().split('T')[0];
 
-  const activeData = timeRange === 'weekly' ? weeklyData : monthlyData;
+    tasks.forEach(t => {
+      const isDone = t.status === 'done';
+      const isOverdue = !isDone && Boolean(t.deadline && t.deadline < nowStr);
+      const refDate = t.completedAt ? new Date(t.completedAt) : t.deadline ? new Date(t.deadline) : new Date(t.createdAt);
+      const dayIdx = refDate.getDay();
+      const dayNames = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
+      const dayName = dayNames[dayIdx];
 
-  const totalCompleted = activeData.reduce((acc, d) => acc + d.completed, 0);
-  const totalOverdue = activeData.reduce((acc, d) => acc + d.overdue, 0);
-  const averageRate = Math.round(
-    activeData.reduce((acc, d) => acc + d.rate, 0) / activeData.length
-  );
+      if (dayMap[dayName]) {
+        if (isDone) dayMap[dayName].completed += 1;
+        if (isOverdue) dayMap[dayName].overdue += 1;
+      }
+    });
+
+    return days.map(day => {
+      const c = dayMap[day].completed;
+      const o = dayMap[day].overdue;
+      const total = c + o;
+      const rate = total > 0 ? Math.round((c / total) * 100) : (tasks.length === 0 ? 0 : 100);
+      return {
+        period: day,
+        completed: c,
+        overdue: o,
+        target: Math.max(c + o, 0),
+        rate
+      };
+    });
+  }, [tasks]);
+
+  // Dynamic 4-week monthly dataset calculated from real tasks
+  const dynamicMonthlyData: DataPoint[] = React.useMemo(() => {
+    const weeks = ['Minggu 1', 'Minggu 2', 'Minggu 3', 'Minggu 4 (Aktif)'];
+    const weekMap: Record<string, { completed: number; overdue: number }> = {
+      'Minggu 1': { completed: 0, overdue: 0 },
+      'Minggu 2': { completed: 0, overdue: 0 },
+      'Minggu 3': { completed: 0, overdue: 0 },
+      'Minggu 4 (Aktif)': { completed: 0, overdue: 0 },
+    };
+
+    const nowStr = new Date().toISOString().split('T')[0];
+
+    tasks.forEach(t => {
+      const isDone = t.status === 'done';
+      const isOverdue = !isDone && Boolean(t.deadline && t.deadline < nowStr);
+      const refDate = t.completedAt ? new Date(t.completedAt) : t.deadline ? new Date(t.deadline) : new Date(t.createdAt);
+      const dateNum = refDate.getDate();
+      let weekName = 'Minggu 1';
+      if (dateNum > 21) weekName = 'Minggu 4 (Aktif)';
+      else if (dateNum > 14) weekName = 'Minggu 3';
+      else if (dateNum > 7) weekName = 'Minggu 2';
+
+      if (isDone) weekMap[weekName].completed += 1;
+      if (isOverdue) weekMap[weekName].overdue += 1;
+    });
+
+    return weeks.map(w => {
+      const c = weekMap[w].completed;
+      const o = weekMap[w].overdue;
+      const total = c + o;
+      const rate = total > 0 ? Math.round((c / total) * 100) : (tasks.length === 0 ? 0 : 100);
+      return {
+        period: w,
+        completed: c,
+        overdue: o,
+        target: Math.max(c + o, 0),
+        rate
+      };
+    });
+  }, [tasks]);
+
+  const activeData = timeRange === 'weekly' ? dynamicWeeklyData : dynamicMonthlyData;
+
+  const totalCompleted = tasks.filter(t => t.status === 'done').length;
+  const nowStr = new Date().toISOString().split('T')[0];
+  const totalOverdue = tasks.filter(t => t.status !== 'done' && Boolean(t.deadline && t.deadline < nowStr)).length;
+  const totalEvaluated = totalCompleted + totalOverdue;
+  const averageRate = totalEvaluated > 0 ? Math.round((totalCompleted / totalEvaluated) * 100) : (tasks.length === 0 ? 0 : 100);
 
   // Custom Recharts Tooltip matching light/dark mode
   const CustomTooltip = ({ active, payload, label }: any) => {
@@ -164,7 +230,9 @@ export const ProductivityTrendsChart: React.FC = () => {
           <div className="mt-0.5 text-lg sm:text-xl font-extrabold text-emerald-700 dark:text-emerald-400">
             {totalCompleted}
           </div>
-          <div className="text-[10px] text-emerald-600 font-medium">↑ +18% vs periode lalu</div>
+          <div className="text-[10px] text-emerald-600 font-medium">
+            {totalCompleted > 0 ? 'Tugas diselesaikan' : 'Belum ada tugas selesai'}
+          </div>
         </div>
 
         <div className="rounded-2xl bg-rose-50/70 p-3 dark:bg-rose-950/30 border border-rose-100 dark:border-rose-900/40">
@@ -174,7 +242,9 @@ export const ProductivityTrendsChart: React.FC = () => {
           <div className="mt-0.5 text-lg sm:text-xl font-extrabold text-rose-700 dark:text-rose-400">
             {totalOverdue}
           </div>
-          <div className="text-[10px] text-rose-600 font-medium">Keterlambatan minimal</div>
+          <div className="text-[10px] text-rose-600 font-medium">
+            {totalOverdue > 0 ? `${totalOverdue} tugas terhambat` : 'Tidak ada keterlambatan'}
+          </div>
         </div>
 
         <div className="rounded-2xl bg-slate-50 p-3 dark:bg-slate-800/60 border border-slate-200/70 dark:border-slate-700/60">
@@ -182,9 +252,11 @@ export const ProductivityTrendsChart: React.FC = () => {
             Ketepatan Waktu
           </div>
           <div className="mt-0.5 text-lg sm:text-xl font-extrabold text-slate-900 dark:text-white">
-            {averageRate}%
+            {tasks.length === 0 ? '0%' : `${averageRate}%`}
           </div>
-          <div className="text-[10px] text-slate-500 font-medium">Target minimum 85%</div>
+          <div className="text-[10px] text-slate-500 font-medium">
+            {tasks.length === 0 ? 'Belum ada data tugas' : 'Target minimum 85%'}
+          </div>
         </div>
       </div>
 

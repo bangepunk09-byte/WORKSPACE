@@ -115,6 +115,32 @@ class SoundEffectsEngine {
   }
 
   /**
+   * Playful Emoji Pop Sound for Feed Reactions
+   */
+  public playEmojiPopSound(): void {
+    if (this.isMuted) return;
+    const ctx = this.getAudioContext();
+    if (!ctx) return;
+
+    const now = ctx.currentTime;
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(560, now);
+    osc.frequency.exponentialRampToValueAtTime(990, now + 0.08);
+
+    gain.gain.setValueAtTime(0.18, now);
+    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.1);
+
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+
+    osc.start(now);
+    osc.stop(now + 0.1);
+  }
+
+  /**
    * 3. Nada Dering Telfon / Panggilan Huddle (Melodic Corporate Phone Ringtone)
    * Softphone chime cadence (C6 -> G5 -> A5 -> E6) repeating rhythmically
    */
@@ -208,6 +234,31 @@ class SoundEffectsEngine {
       osc.start(now + time);
       osc.stop(now + time + 0.45);
     });
+  }
+
+  /**
+   * Subtle, professional hand-raise alert sound.
+   */
+  public playHandRaiseSound(): void {
+    if (this.isMuted) return;
+    const ctx = this.getAudioContext();
+    if (!ctx) return;
+
+    const now = ctx.currentTime;
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(659.25, now); // E5
+
+    gain.gain.setValueAtTime(0.12, now);
+    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.3);
+
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+
+    osc.start(now);
+    osc.stop(now + 0.3);
   }
 }
 

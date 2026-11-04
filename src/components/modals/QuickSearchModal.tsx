@@ -53,7 +53,7 @@ export const QuickSearchModal: React.FC = () => {
   const q = query.toLowerCase().trim();
 
   // Search results
-  const matchingTasks = q ? tasks.filter(t => t.title.toLowerCase().includes(q) || t.project.toLowerCase().includes(q)).slice(0, 3) : [];
+  const matchingTasks = q ? tasks.filter(t => t.title.toLowerCase().includes(q) || (t.brand && t.brand.toLowerCase().includes(q)) || (t.project && t.project.toLowerCase().includes(q))).slice(0, 3) : [];
   const matchingDocs = q ? documents.filter(d => d.title.toLowerCase().includes(q) || d.fileName.toLowerCase().includes(q)).slice(0, 3) : [];
   const matchingUsers = q ? users.filter(u => u.name.toLowerCase().includes(q) || u.position.toLowerCase().includes(q)).slice(0, 3) : [];
   const matchingChannels = q ? channels.filter(c => c.name.toLowerCase().includes(q)).slice(0, 3) : [];

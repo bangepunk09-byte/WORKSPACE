@@ -21,11 +21,12 @@ import { BrandDriveDirectory } from './components/drive/BrandDriveDirectory';
 import { EmployeeDirectory } from './components/directory/EmployeeDirectory';
 import { AdminCustomization } from './components/admin/AdminCustomization';
 import { HuddleRoom } from './components/common/HuddleRoom';
-import { CreateTaskModal } from './components/modals/CreateTaskModal';
-import { CreateMeetingModal } from './components/modals/CreateMeetingModal';
+import { NewDashboard } from './components/dashboard/NewDashboard';
+import { NewSidebar } from './components/layout/NewSidebar';
 import { UploadDocModal } from './components/modals/UploadDocModal';
 import { LeaveRequestModal } from './components/modals/LeaveRequestModal';
 import { QuickSearchModal } from './components/modals/QuickSearchModal';
+import { BrandManagementModal } from './components/modals/BrandManagementModal';
 import { ModernDatabaseHub } from './components/database/ModernDatabaseHub';
 import {
   LayoutDashboard,
@@ -51,19 +52,41 @@ const MainLayout: React.FC = () => {
     isDbHubOpen,
     setIsDbHubOpen,
     leaveApprovalToast,
-    setLeaveApprovalToast
+    setLeaveApprovalToast,
+    themeSettings
   } = useWorkspace();
 
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+
+  // Global ESC key listener to close any open quick action modal or popup
+  React.useEffect(() => {
+    const handleGlobalKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        if (quickActionModal) setQuickActionModal(null);
+        if (isDbHubOpen) setIsDbHubOpen(false);
+        if (leaveApprovalToast) setLeaveApprovalToast(null);
+      }
+    };
+    window.addEventListener('keydown', handleGlobalKeyDown);
+    return () => window.removeEventListener('keydown', handleGlobalKeyDown);
+  }, [quickActionModal, isDbHubOpen, leaveApprovalToast, setQuickActionModal, setIsDbHubOpen, setLeaveApprovalToast]);
 
   if (!isAuthenticated) {
     return <LoginPage />;
   }
 
+  const isCustomBg = themeSettings.bgPattern === 'solid' || themeSettings.bgPattern === 'gradient';
+  const patternClass = themeSettings.bgPattern && themeSettings.bgPattern !== 'clean' ? `bg-pattern-${themeSettings.bgPattern}` : '';
+  const bgClass = isCustomBg
+    ? ''
+    : patternClass
+    ? 'bg-slate-50/75 dark:bg-slate-950/75'
+    : 'bg-slate-50 dark:bg-slate-950';
+
   const renderActiveView = () => {
     switch (activeTab) {
       case 'dashboard':
-        return <HomeDashboard />;
+        return <NewDashboard />;
       case 'feed':
         return <SocialFeed />;
       case 'chat':
@@ -90,12 +113,18 @@ const MainLayout: React.FC = () => {
   };
 
   return (
-    <div className="flex h-screen w-full overflow-hidden bg-slate-50 text-slate-900 transition-colors dark:bg-slate-950 dark:text-slate-100 font-sans">
-      {/* Desktop & Mobile Responsive Sidebar */}
-      <Sidebar
-        isMobileOpen={isMobileMenuOpen}
-        onCloseMobile={() => setIsMobileMenuOpen(false)}
-      />
+    <div
+      className={`flex h-screen w-full overflow-hidden text-slate-900 transition-colors dark:text-slate-100 font-sans ${patternClass} ${bgClass}`}
+      style={
+        themeSettings.bgPattern === 'solid' && themeSettings.customBgSolidColor
+          ? { backgroundColor: themeSettings.customBgSolidColor }
+          : themeSettings.bgPattern === 'gradient' && themeSettings.customBgGradient
+          ? { backgroundImage: themeSettings.customBgGradient, backgroundSize: 'cover', backgroundAttachment: 'fixed' }
+          : undefined
+      }
+    >
+      {/* New Sidebar */}
+      <NewSidebar />
 
       {/* Main Content Area */}
       <div className="flex flex-1 flex-col overflow-hidden">
@@ -108,7 +137,7 @@ const MainLayout: React.FC = () => {
         {/* Main Viewport Content & Real-time Right Notifications */}
         <div className="flex flex-1 overflow-hidden relative">
           <main
-            className={`flex-1 overflow-hidden ${
+            className={`flex-1 overflow-hidden ${patternClass} ${
               activeTab === 'chat'
                 ? 'h-[calc(100vh-8rem)] md:h-[calc(100vh-4rem)] p-0 pb-16 md:pb-0'
                 : 'overflow-y-auto px-3.5 py-4 sm:px-6 sm:py-6 pb-24 md:pb-6'
@@ -228,6 +257,9 @@ const MainLayout: React.FC = () => {
 
       {/* Global ⌘K Search Spotlight Modal */}
       <QuickSearchModal />
+
+      {/* Brand & Company Label Management Modal */}
+      <BrandManagementModal />
 
       {/* Modern Database Hub Modal */}
       <ModernDatabaseHub isOpen={isDbHubOpen} onClose={() => setIsDbHubOpen(false)} />

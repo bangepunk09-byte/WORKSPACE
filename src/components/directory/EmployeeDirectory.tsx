@@ -67,7 +67,16 @@ export const EmployeeAvatar: React.FC<{ emp: User; className?: string; onClick?:
 };
 
 export const EmployeeDirectory: React.FC = () => {
-  const { users, currentUser, startDirectMessage, setCurrentUser, deleteUser, updateUser } = useWorkspace();
+  const {
+    users,
+    currentUser,
+    startDirectMessage,
+    setCurrentUser,
+    deleteUser,
+    updateUser,
+    selectedDirectoryUserId,
+    setSelectedDirectoryUserId
+  } = useWorkspace();
 
   const [viewMode, setViewMode] = useState<'grid' | 'orgChart'>('grid');
   const [searchQuery, setSearchQuery] = useState('');
@@ -76,6 +85,16 @@ export const EmployeeDirectory: React.FC = () => {
   const [selectedEmployee, setSelectedEmployee] = useState<User | null>(null);
   const [userToDelete, setUserToDelete] = useState<User | null>(null);
   const [showInviteModal, setShowInviteModal] = useState(false);
+
+  React.useEffect(() => {
+    if (selectedDirectoryUserId) {
+      const target = users.find(u => u.id === selectedDirectoryUserId);
+      if (target) {
+        setSelectedEmployee(target);
+      }
+      setSelectedDirectoryUserId(null);
+    }
+  }, [selectedDirectoryUserId, users]);
 
   const departments = [
     { id: 'all', label: 'Semua Departemen' },
@@ -388,10 +407,10 @@ export const EmployeeDirectory: React.FC = () => {
 
       {/* CATCHY EMPLOYEE SHOWCASE MODAL WITH CUSTOM PHOTO UPLOAD & SILHOUETTE FALLBACK */}
       {selectedEmployee && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="w-full max-w-xl rounded-3xl bg-white dark:bg-slate-900 shadow-2xl border border-slate-200 dark:border-slate-800 overflow-hidden space-y-0">
-            {/* HEROIC SHOWCASE HEADER */}
-            <div className="relative bg-gradient-to-r from-slate-950 via-slate-900 to-red-950 p-6 text-white overflow-hidden">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 bg-slate-950/75 backdrop-blur-sm animate-in fade-in duration-200 overflow-hidden">
+          <div className="w-full max-w-xl max-h-[90vh] sm:max-h-[85vh] flex flex-col rounded-3xl bg-white dark:bg-slate-900 shadow-2xl border border-slate-200 dark:border-slate-800 my-auto overflow-hidden">
+            {/* HEROIC SHOWCASE HEADER - Fixed Shrink 0 */}
+            <div className="shrink-0 relative bg-gradient-to-r from-slate-950 via-slate-900 to-red-950 p-5 sm:p-6 text-white overflow-hidden">
               {/* Background Accent Lines */}
               <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(220,38,38,0.25),transparent_60%)] pointer-events-none" />
               
@@ -468,14 +487,14 @@ export const EmployeeDirectory: React.FC = () => {
                   )}
                 </div>
 
-                <span className="text-[10px] text-slate-400">
-                  {selectedEmployee.gender || 'Laki-laki'} • Siluet Otomatis jika Tanpa Foto
+                <span className="text-[10px] text-slate-400 font-semibold">
+                  {selectedEmployee.gender || 'Laki-laki'}
                 </span>
               </div>
             </div>
 
-            {/* SHOWCASE BODY DETAILS */}
-            <div className="p-6 space-y-4 text-xs">
+            {/* SHOWCASE BODY DETAILS - Scrollable */}
+            <div className="flex-1 overflow-y-auto p-5 sm:p-6 space-y-4 text-xs min-h-0">
               <div>
                 <span className="font-bold text-slate-400 text-[10px] block uppercase tracking-wider mb-1">
                   Bio Ringkas & Peran Utama
@@ -560,8 +579,8 @@ export const EmployeeDirectory: React.FC = () => {
               )}
             </div>
 
-            {/* SHOWCASE FOOTER ACTIONS */}
-            <div className="p-4 bg-slate-50 dark:bg-slate-900 border-t border-slate-100 dark:border-slate-800 flex flex-wrap items-center justify-between gap-2">
+            {/* SHOWCASE FOOTER ACTIONS - Fixed Shrink 0 */}
+            <div className="shrink-0 p-4 bg-slate-50 dark:bg-slate-900 border-t border-slate-100 dark:border-slate-800 flex flex-wrap items-center justify-between gap-2">
               <div className="flex items-center gap-2">
                 <button
                   type="button"

@@ -37,7 +37,8 @@ import {
   Camera,
   Upload,
   CalendarCheck,
-  Calendar
+  Calendar,
+  Trash2
 } from 'lucide-react';
 import { useWorkspace } from '../../context/WorkspaceContext';
 import { Channel, ChatMessage, StickerData, Task, Attachment, LeaveRequest } from '../../types';
@@ -70,6 +71,7 @@ export const ChatMessaging: React.FC = () => {
     messages,
     sendMessage,
     toggleReaction,
+    deleteMessage,
     createChannel,
     updateChannelSettings,
     toggleStarChannel,
@@ -79,6 +81,9 @@ export const ChatMessaging: React.FC = () => {
     processLeaveApproval,
     startDirectMessage,
     startHuddle,
+    activeHuddle,
+    endHuddle,
+    toggleHuddleMinimize,
     setQuickActionModal
   } = useWorkspace();
 
@@ -89,6 +94,7 @@ export const ChatMessaging: React.FC = () => {
   const [showChannelModal, setShowChannelModal] = useState(false);
   const [showDmModal, setShowDmModal] = useState(false);
   const [showMobileList, setShowMobileList] = useState(false);
+  const [messageToDelete, setMessageToDelete] = useState<{ channelId: string; messageId: string; previewText: string } | null>(null);
 
   // Sticker modal & maker state
   const [showStickerModal, setShowStickerModal] = useState(false);
@@ -182,6 +188,24 @@ export const ChatMessaging: React.FC = () => {
       console.error('Error saving custom stickers:', e);
     }
   }, [userCreatedStickers]);
+
+  // Support ESC key to close any active chat modal / popup
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setShowSettingsModal(false);
+        setShowMediaDrawer(false);
+        setShowAttachTaskModal(false);
+        setShowStickerModal(false);
+        setShowChannelModal(false);
+        setShowDmModal(false);
+        setMessageToDelete(null);
+        setPreviewImage(null);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
 
   const handleSend = (e: React.FormEvent) => {
     e.preventDefault();
@@ -542,17 +566,40 @@ export const ChatMessaging: React.FC = () => {
                       />
                     </div>
                   ) : (
-                    <div
-                      className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-xl transition ${
-                        isActive
-                          ? 'bg-red-600 text-white'
-                          : 'bg-slate-200 text-slate-600 group-hover:bg-slate-300 dark:bg-slate-800 dark:text-slate-300 dark:group-hover:bg-slate-700'
-                      }`}
-                    >
-                      {c.isPrivate ? (
-                        <Lock className="h-3.5 w-3.5" />
+                    <div className="relative shrink-0">
+                      {c.avatar ? (
+                        <img
+                          src={c.avatar}
+                          alt={c.name}
+                          className="h-9 w-9 rounded-xl object-cover ring-1 ring-slate-200 dark:ring-slate-700 shadow-2xs"
+                        />
                       ) : (
-                        <Hash className="h-4 w-4" />
+                        <div
+                          className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl font-extrabold text-white shadow-2xs transition ${
+                            isActive
+                              ? 'bg-red-600'
+                              : c.name.includes('announc') || c.name.includes('general')
+                              ? 'bg-gradient-to-tr from-red-600 to-rose-500'
+                              : c.name.includes('tech') || c.name.includes('engine')
+                              ? 'bg-gradient-to-tr from-blue-600 to-indigo-500'
+                              : c.name.includes('design') || c.name.includes('product')
+                              ? 'bg-gradient-to-tr from-purple-600 to-fuchsia-500'
+                              : c.name.includes('titan') || c.name.includes('project')
+                              ? 'bg-gradient-to-tr from-emerald-600 to-teal-500'
+                              : 'bg-gradient-to-tr from-slate-700 to-slate-900'
+                          }`}
+                        >
+                          <Hash className="h-4.5 w-4.5" />
+                        </div>
+                      )}
+
+                      {c.isPrivate && (
+                        <span
+                          className="absolute -bottom-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-slate-900 text-amber-300 ring-2 ring-white dark:ring-slate-900 shadow-xs"
+                          title="Saluran Privat (Terkunci)"
+                        >
+                          <Lock className="h-2.5 w-2.5" />
+                        </span>
                       )}
                     </div>
                   )}
@@ -608,8 +655,26 @@ export const ChatMessaging: React.FC = () => {
 
             {activeChannel.type === 'channel' ? (
               <div className="flex items-center gap-2.5 min-w-0">
-                <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-red-100 text-red-600 dark:bg-red-950/60 dark:text-red-300 shrink-0">
-                  <Hash className="h-5 w-5" />
+                <div className="relative shrink-0">
+                  {activeChannel.avatar ? (
+                    <img
+                      src={activeChannel.avatar}
+                      alt={activeChannel.name}
+                      className="h-9 w-9 rounded-xl object-cover ring-1 ring-slate-200 dark:ring-slate-700 shadow-2xs"
+                    />
+                  ) : (
+                    <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-red-600 text-white shadow-2xs font-extrabold">
+                      <Hash className="h-5 w-5" />
+                    </div>
+                  )}
+                  {activeChannel.isPrivate && (
+                    <span
+                      className="absolute -bottom-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-slate-900 text-amber-300 ring-2 ring-white dark:ring-slate-900 shadow-xs"
+                      title="Saluran Privat (Terkunci)"
+                    >
+                      <Lock className="h-2.5 w-2.5" />
+                    </span>
+                  )}
                 </div>
                 <div className="min-w-0">
                   <div className="flex items-center gap-2">
@@ -617,8 +682,9 @@ export const ChatMessaging: React.FC = () => {
                       #{activeChannel.name}
                     </span>
                     {activeChannel.isPrivate && (
-                      <span className="rounded-md bg-slate-100 px-1.5 py-0.5 text-[9px] font-semibold text-slate-600 dark:bg-slate-800 dark:text-slate-400">
-                        Privat
+                      <span className="rounded-md bg-amber-500/15 px-1.5 py-0.5 text-[9px] font-bold text-amber-700 dark:text-amber-300 border border-amber-500/30 flex items-center gap-1">
+                        <Lock className="h-2.5 w-2.5" />
+                        <span>Privat</span>
                       </span>
                     )}
                   </div>
@@ -700,51 +766,78 @@ export const ChatMessaging: React.FC = () => {
               <Settings className="h-4 w-4" />
             </button>
 
-            {/* Sticker Shortcut */}
-            <button
-              onClick={() => {
-                setShowStickerModal(true);
-                setStickerTab('presets');
-              }}
-              className="flex items-center gap-1.5 rounded-xl border border-red-200 bg-red-50/70 px-2.5 py-1.5 text-xs font-bold text-red-600 shadow-2xs transition hover:bg-red-100 dark:border-red-900/50 dark:bg-red-950/40 dark:text-red-300"
-              title="Koleksi & Bikin Stiker Baru"
-            >
-              <Sparkles className="h-3.5 w-3.5" />
-              <span className="hidden sm:inline">Stiker</span>
-            </button>
-
-            {/* Start Live Huddle button */}
-            <button
-              type="button"
-              onClick={() => startHuddle(activeChannel.type === 'channel' ? `#${activeChannel.name}` : `Huddle dengan ${activeChannel.name}`, activeChannel.type, activeChannel.id, false)}
-              className="flex items-center gap-1.5 rounded-xl border border-emerald-500/30 bg-emerald-50 px-2.5 py-1.5 text-xs font-bold text-emerald-700 hover:bg-emerald-100 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-800 transition cursor-pointer"
-              title="Mulai Live Huddle Suara & Video"
-            >
-              <Video className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" />
-              <span className="hidden sm:inline">Huddle</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => startHuddle(`Panggilan Suara: ${activeChannel.name}`, activeChannel.type, activeChannel.id, true)}
-              className="rounded-xl p-2 text-slate-500 hover:bg-slate-100 hover:text-slate-700 dark:text-slate-400 dark:hover:bg-slate-800 transition cursor-pointer"
-              title="Panggilan Suara (Audio Huddle)"
-            >
-              <Phone className="h-4 w-4" />
-            </button>
-            <button
-              type="button"
-              onClick={() => startHuddle(`Video Call: ${activeChannel.name}`, activeChannel.type, activeChannel.id, false)}
-              className="rounded-xl p-2 text-slate-500 hover:bg-slate-100 hover:text-slate-700 dark:text-slate-400 dark:hover:bg-slate-800 transition cursor-pointer"
-              title="Panggilan Video HD (Video Huddle)"
-            >
-              <Video className="h-4 w-4" />
-            </button>
+            {/* Private Call / Group Call Triggers */}
+            {activeChannel.type === 'direct' ? (
+              <div className="flex items-center gap-1">
+                <button
+                  type="button"
+                  onClick={() => startHuddle(`Private Call: ${activeChannel.name}`, 'direct', activeChannel.id, true)}
+                  className="rounded-xl p-2 text-slate-500 hover:bg-slate-100 hover:text-slate-800 dark:text-slate-400 dark:hover:bg-slate-800 transition cursor-pointer"
+                  title="Private Call (1-on-1)"
+                >
+                  <Phone className="h-4 w-4 text-sky-600 dark:text-sky-400" />
+                </button>
+              </div>
+            ) : (
+              <div className="flex items-center gap-1">
+                <button
+                  type="button"
+                  onClick={() => startHuddle(`Group Call: #${activeChannel.name}`, 'channel', activeChannel.id, false)}
+                  className="flex items-center gap-1.5 rounded-xl border border-emerald-500/30 bg-emerald-50 px-2.5 py-1.5 text-xs font-bold text-emerald-700 hover:bg-emerald-100 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-800 transition cursor-pointer"
+                  title="Group Call Tim & Share Screen"
+                >
+                  <Video className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" />
+                  <span className="hidden sm:inline">Group Call</span>
+                </button>
+              </div>
+            )}
           </div>
         </div>
 
         {/* Message Thread Area */}
         <div className="flex-1 overflow-y-auto p-4 sm:p-5 space-y-4">
+          {/* Active Call Live Banner in Channel */}
+          {activeHuddle && activeHuddle.targetId === activeChannel.id && (
+            <div className="sticky top-0 z-20 mb-3 flex items-center justify-between rounded-2xl border border-emerald-500/40 bg-emerald-500/10 p-3 text-xs shadow-xs backdrop-blur-md dark:border-emerald-500/30 dark:bg-emerald-950/80 animate-in fade-in">
+              <div className="flex items-center gap-2.5 min-w-0">
+                <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-emerald-600 text-white shadow-xs shrink-0">
+                  <Video className="h-4 w-4" />
+                </div>
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2">
+                    <span className="font-extrabold text-slate-900 dark:text-white">
+                      {activeHuddle.type === 'direct' ? 'Private Call (1-on-1) Sedang Berlangsung' : 'Group Call Tim Sedang Berlangsung'}
+                    </span>
+                    <span className="rounded-full bg-emerald-500 px-2 py-0.5 text-[9px] font-black text-white uppercase tracking-wider animate-pulse">
+                      LIVE
+                    </span>
+                  </div>
+                  <p className="text-slate-600 dark:text-slate-300 text-[11px] mt-0.5 truncate">
+                    {activeHuddle.participants.length} peserta ({activeHuddle.participants.map(p => p.name.split(' ')[0]).join(', ')})
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2 shrink-0 ml-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (activeHuddle.isMinimized) toggleHuddleMinimize();
+                  }}
+                  className="rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-1.5 text-xs font-bold transition shadow-xs cursor-pointer"
+                >
+                  Buka Panggilan
+                </button>
+                <button
+                  type="button"
+                  onClick={endHuddle}
+                  className="rounded-xl bg-rose-600/90 hover:bg-rose-700 text-white px-3 py-1.5 text-xs font-bold transition cursor-pointer"
+                >
+                  Akhiri
+                </button>
+              </div>
+            </div>
+          )}
+
           {/* Pinned Messages Banner */}
           {pinnedMessages.length > 0 && (
             <div className="sticky top-0 z-20 mb-3 flex items-center justify-between rounded-2xl border border-amber-200 bg-amber-50/95 p-3 text-xs shadow-xs backdrop-blur-md dark:border-amber-900/60 dark:bg-amber-950/90 animate-in fade-in">
@@ -841,11 +934,17 @@ export const ChatMessaging: React.FC = () => {
                     ) : (
                       <div
                         className={`relative rounded-2xl ${
-                          msg.attachedTask ? 'p-4 sm:p-5 space-y-3' : 'px-4 py-2.5 space-y-1'
-                        } text-xs shadow-2xs leading-relaxed transition-all ${
-                          isMe
-                            ? 'chat-bubble-outgoing rounded-tr-xs chat-bubble-animate-outgoing'
-                            : 'bg-white text-slate-800 dark:bg-slate-800 dark:text-slate-100 border border-slate-200/90 dark:border-slate-700/70 rounded-tl-xs chat-bubble-animate-incoming'
+                          msg.attachedTask || msg.leaveRequest
+                            ? `p-4 sm:p-5 space-y-3.5 max-w-xl w-full ${
+                                isMe
+                                  ? 'bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-900 text-white border border-indigo-500/30 shadow-md rounded-tr-xs'
+                                  : 'bg-white text-slate-900 dark:bg-slate-900 dark:text-slate-100 border border-slate-200 dark:border-slate-800 shadow-sm rounded-tl-xs'
+                              }`
+                            : `px-4 py-2.5 space-y-1 shadow-2xs leading-relaxed ${
+                                isMe
+                                  ? 'chat-bubble-outgoing rounded-tr-xs chat-bubble-animate-outgoing'
+                                  : 'bg-white text-slate-800 dark:bg-slate-800 dark:text-slate-100 border border-slate-200/90 dark:border-slate-700/70 rounded-tl-xs chat-bubble-animate-incoming'
+                              }`
                         }`}
                       >
                         {/* Standard / Custom Text Message (Omitted when card is present to eliminate duplicate header text) */}
@@ -870,15 +969,9 @@ export const ChatMessaging: React.FC = () => {
                           </div>
                         )}
 
-                        {/* Task Card Approval Bubble (Harmonized with Chat Bubble Color & Balanced Margins) */}
+                        {/* Task Card Approval Single-Layer Card */}
                         {msg.attachedTask && (
-                          <div
-                            className={`mt-3 rounded-2xl border p-4 space-y-3 text-left transition ${
-                              isMe
-                                ? 'bg-black/25 border-white/20 text-white shadow-md backdrop-blur-xs'
-                                : 'bg-slate-50 border-slate-200 text-slate-900 dark:bg-slate-900/90 dark:border-slate-700 dark:text-white shadow-xs'
-                            }`}
-                          >
+                          <div className="space-y-3 text-left">
                             <div className={`flex items-center justify-between gap-2 pb-2.5 ${isMe ? 'border-b border-white/15' : 'border-b border-slate-200 dark:border-slate-800'}`}>
                               <div className="flex items-center gap-1.5">
                                 <CheckSquare className={`h-4 w-4 ${isMe ? 'text-amber-300' : 'text-amber-600 dark:text-amber-400'}`} />
@@ -924,12 +1017,12 @@ export const ChatMessaging: React.FC = () => {
 
                                 if (isRequester) {
                                   return (
-                                    <div className={`flex-1 rounded-xl px-3.5 py-2.5 text-center text-xs font-semibold flex items-center justify-center gap-1.5 ${
+                                    <div className={`flex-1 rounded-xl px-3 py-2 text-xs font-semibold flex items-center justify-center gap-1.5 ${
                                       isMe
-                                        ? 'bg-black/20 border border-white/20 text-white/95'
-                                        : 'bg-amber-500/15 border border-amber-500/30 text-amber-800 dark:text-amber-300'
+                                        ? 'bg-white/10 text-amber-200'
+                                        : 'bg-amber-50 dark:bg-amber-950/40 text-amber-800 dark:text-amber-300'
                                     }`}>
-                                      <Lock className="h-3.5 w-3.5 shrink-0 text-amber-300" />
+                                      <Lock className="h-3.5 w-3.5 shrink-0 text-amber-400" />
                                       <span>Menunggu persetujuan rekan / manajer lain (Anda adalah pengaju kartu ini)</span>
                                     </div>
                                   );
@@ -949,8 +1042,8 @@ export const ChatMessaging: React.FC = () => {
                                       }
                                       className={`flex-1 rounded-xl py-2 px-3 text-xs font-bold text-center transition cursor-pointer ${
                                         isMe
-                                          ? 'bg-white/20 hover:bg-white/30 border border-white/20 text-white'
-                                          : 'bg-slate-200 hover:bg-slate-300 text-slate-800 dark:bg-slate-700 dark:text-white'
+                                          ? 'bg-white/20 hover:bg-white/30 text-white'
+                                          : 'bg-slate-100 hover:bg-slate-200 text-slate-800 dark:bg-slate-800 dark:text-white'
                                       }`}
                                     >
                                       ✕ Tolak
@@ -965,7 +1058,7 @@ export const ChatMessaging: React.FC = () => {
                                           'Disetujui via chat grup'
                                         )
                                       }
-                                      className="flex-1 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-white py-2 px-3 text-xs font-black text-center shadow-md transition cursor-pointer"
+                                      className="flex-1 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white py-2 px-3 text-xs font-black text-center shadow-xs transition cursor-pointer"
                                     >
                                       ✓ Setujui (Approve)
                                     </button>
@@ -976,15 +1069,9 @@ export const ChatMessaging: React.FC = () => {
                           </div>
                         )}
 
-                        {/* Interactive Leave Request Chat Card */}
+                        {/* Interactive Leave Request Single-Layer Card */}
                         {msg.leaveRequest && (
-                          <div
-                            className={`mt-3 rounded-2xl border p-4 sm:p-5 space-y-3.5 text-left transition-all ${
-                              isMe
-                                ? 'bg-black/30 border-white/20 text-white shadow-lg backdrop-blur-xs'
-                                : 'bg-white border-slate-200 text-slate-900 dark:bg-slate-900/95 dark:border-slate-700 dark:text-white shadow-md'
-                            }`}
-                          >
+                          <div className="space-y-3.5 text-left">
                             {/* Card Header */}
                             <div className={`flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 ${isMe ? 'border-b border-white/15' : 'border-b border-slate-200 dark:border-slate-800'}`}>
                               <div className="flex items-center gap-2.5">
@@ -1003,7 +1090,7 @@ export const ChatMessaging: React.FC = () => {
                               <span
                                 className={`rounded-xl px-3 py-1 text-[10px] font-black uppercase tracking-wider self-start sm:self-auto shadow-2xs ${
                                   msg.leaveRequest.overallStatus === 'fully_approved'
-                                    ? 'bg-emerald-500 text-white ring-2 ring-emerald-400/40'
+                                    ? 'bg-emerald-500 text-white'
                                     : msg.leaveRequest.overallStatus === 'declined'
                                     ? 'bg-rose-500 text-white'
                                     : msg.leaveRequest.overallStatus === 'boss_approved'
@@ -1026,8 +1113,10 @@ export const ChatMessaging: React.FC = () => {
                             </div>
 
                             {/* Requester, Dates, Reason, Attachment */}
-                            <div className="rounded-xl bg-black/10 dark:bg-slate-800/60 p-3.5 space-y-2 border border-white/10 dark:border-slate-700/60 text-xs">
-                              <div className="flex items-center justify-between">
+                            <div className={`p-3 space-y-2 rounded-xl text-xs ${
+                              isMe ? 'bg-white/10' : 'bg-slate-50 dark:bg-slate-800/50'
+                            }`}>
+                              <div className="flex items-center justify-between gap-2">
                                 <span className="opacity-75">Karyawan Pemohon:</span>
                                 <span className="font-bold flex items-center gap-1.5">
                                   <img src={msg.leaveRequest.requesterAvatar} alt="" className="h-5 w-5 rounded-full object-cover" />
@@ -1035,13 +1124,13 @@ export const ChatMessaging: React.FC = () => {
                                   <span className="opacity-60 text-[10px]">({msg.leaveRequest.requesterDept})</span>
                                 </span>
                               </div>
-                              <div className="flex items-center justify-between">
+                              <div className="flex items-center justify-between gap-2">
                                 <span className="opacity-75">Periode & Durasi:</span>
                                 <span className="font-bold font-mono">
                                   {msg.leaveRequest.startDate} s/d {msg.leaveRequest.endDate} ({msg.leaveRequest.totalDays} Hari Kerja)
                                 </span>
                               </div>
-                              <div className="pt-1.5 border-t border-white/10 dark:border-slate-700/50">
+                              <div className={`pt-1.5 ${isMe ? 'border-t border-white/10' : 'border-t border-slate-200 dark:border-slate-700/50'}`}>
                                 <span className="opacity-75 block text-[11px] mb-0.5">Alasan Cuti:</span>
                                 <p className="font-medium italic leading-relaxed">
                                   "{msg.leaveRequest.reason}"
@@ -1072,179 +1161,181 @@ export const ChatMessaging: React.FC = () => {
                               <div className="text-[10px] font-black uppercase tracking-wider opacity-75">
                                 Progres Persetujuan Ganda (Dual-Approval):
                               </div>
-                              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
-                                {/* Box Atasan (Boss) */}
-                                <div className={`p-3 rounded-xl border ${
-                                  msg.leaveRequest.bossApproval.status === 'approved'
-                                    ? 'bg-emerald-500/15 border-emerald-500/40 text-emerald-200'
-                                    : msg.leaveRequest.bossApproval.status === 'declined'
-                                    ? 'bg-rose-500/15 border-rose-500/40 text-rose-200'
-                                    : 'bg-black/10 dark:bg-slate-800/50 border-white/10 dark:border-slate-700/60'
-                                }`}>
-                                  <div className="flex items-center justify-between gap-1 mb-1">
-                                    <span className="font-bold text-[11px]">1. Atasan Langsung:</span>
-                                    <span className={`text-[10px] font-black px-1.5 py-0.2 rounded ${
-                                      msg.leaveRequest.bossApproval.status === 'approved'
-                                        ? 'bg-emerald-500 text-white'
-                                        : msg.leaveRequest.bossApproval.status === 'declined'
-                                        ? 'bg-rose-500 text-white'
-                                        : 'bg-amber-400 text-slate-950'
-                                    }`}>
-                                      {msg.leaveRequest.bossApproval.status === 'approved'
-                                        ? '✓ SUDAH DISETUJUI'
-                                        : msg.leaveRequest.bossApproval.status === 'declined'
-                                        ? '✕ DITOLAK'
-                                        : '⏳ MENUNGGU'}
-                                    </span>
-                                  </div>
-                                  <div className="font-bold truncate text-[11px]">
-                                    {msg.leaveRequest.bossApproval.approverName}
-                                  </div>
-                                  {msg.leaveRequest.bossApproval.status === 'approved' && (
-                                    <div className="text-[10px] text-emerald-400 font-semibold mt-1 flex items-center gap-1">
-                                      <Check className="h-3 w-3 shrink-0" />
-                                      <span>Sudah di-approve oleh Atasan Langsung ({msg.leaveRequest.bossApproval.approverName})</span>
-                                    </div>
-                                  )}
-                                  {msg.leaveRequest.bossApproval.status === 'declined' && (
-                                    <div className="text-[10px] text-rose-400 font-semibold mt-1">
-                                      Ditolak oleh Atasan Langsung
-                                    </div>
-                                  )}
-                                </div>
-
-                                {/* Box HR */}
-                                <div className={`p-3 rounded-xl border ${
-                                  msg.leaveRequest.hrApproval.status === 'approved'
-                                    ? 'bg-emerald-500/15 border-emerald-500/40 text-emerald-200'
-                                    : msg.leaveRequest.hrApproval.status === 'declined'
-                                    ? 'bg-rose-500/15 border-rose-500/40 text-rose-200'
-                                    : 'bg-black/10 dark:bg-slate-800/50 border-white/10 dark:border-slate-700/60'
-                                }`}>
-                                  <div className="flex items-center justify-between gap-1 mb-1">
-                                    <span className="font-bold text-[11px]">2. Tim HR:</span>
-                                    <span className={`text-[10px] font-black px-1.5 py-0.2 rounded ${
-                                      msg.leaveRequest.hrApproval.status === 'approved'
-                                        ? 'bg-emerald-500 text-white'
-                                        : msg.leaveRequest.hrApproval.status === 'declined'
-                                        ? 'bg-rose-500 text-white'
-                                        : 'bg-amber-400 text-slate-950'
-                                    }`}>
-                                      {msg.leaveRequest.hrApproval.status === 'approved'
-                                        ? '✓ SUDAH DISETUJUI'
-                                        : msg.leaveRequest.hrApproval.status === 'declined'
-                                        ? '✕ DITOLAK'
-                                        : '⏳ MENUNGGU'}
-                                    </span>
-                                  </div>
-                                  <div className="font-bold truncate text-[11px]">
-                                    {msg.leaveRequest.hrApproval.approverName}
-                                  </div>
-                                  {msg.leaveRequest.hrApproval.status === 'approved' && (
-                                    <div className="text-[10px] text-emerald-400 font-semibold mt-1 flex items-center gap-1">
-                                      <Check className="h-3 w-3 shrink-0" />
-                                      <span>Sudah di-approve & divalidasi oleh Tim HR ({msg.leaveRequest.hrApproval.approverName})</span>
-                                    </div>
-                                  )}
-                                  {msg.leaveRequest.hrApproval.status === 'declined' && (
-                                    <div className="text-[10px] text-rose-400 font-semibold mt-1">
-                                      Ditolak oleh Tim HR
-                                    </div>
-                                  )}
-                                </div>
-                              </div>
-                            </div>
-
-                            {/* Integrated Action Buttons: Approve & Decline for Boss / HR */}
-                            <div className={`pt-2.5 ${isMe ? 'border-t border-white/15' : 'border-t border-slate-200 dark:border-slate-800'}`}>
-                              {msg.leaveRequest.overallStatus === 'fully_approved' ? (
-                                <div className="rounded-xl bg-emerald-500/20 border border-emerald-500/40 p-3 text-center text-xs font-black text-emerald-300 flex items-center justify-center gap-2 shadow-xs">
-                                  <Check className="h-4 w-4 stroke-[3]" />
-                                  <span>CUTI TELAH RESMI DISETUJUI OLEH ATASAN & HR!</span>
-                                </div>
-                              ) : msg.leaveRequest.overallStatus === 'declined' ? (
-                                <div className="rounded-xl bg-rose-500/20 border border-rose-500/40 p-2.5 text-center text-xs font-bold text-rose-300">
-                                  Pengajuan cuti ini telah ditolak.
-                                </div>
-                              ) : (() => {
+                              {(() => {
                                 const isRequester = currentUser.id === msg.leaveRequest?.requesterId;
-                                if (isRequester) {
-                                  return (
-                                    <div className="rounded-xl bg-black/20 p-2.5 text-center text-[11px] opacity-80 border border-white/10">
-                                      Menunggu keputusan Atasan & HR (Anda adalah pemohon cuti ini).
-                                    </div>
-                                  );
-                                }
-
                                 const canApproveBoss =
+                                  !isRequester &&
+                                  msg.leaveRequest.bossApproval.status === 'pending' &&
                                   (currentUser.id === msg.leaveRequest.bossApproval.approverId ||
                                     currentUser.role === 'super_admin' ||
                                     currentUser.role === 'manager' ||
-                                    currentUser.role === 'admin') &&
-                                  msg.leaveRequest.bossApproval.status === 'pending';
+                                    currentUser.role === 'admin');
 
                                 const canApproveHr =
+                                  !isRequester &&
+                                  msg.leaveRequest.hrApproval.status === 'pending' &&
                                   (currentUser.id === msg.leaveRequest.hrApproval.approverId ||
                                     currentUser.department.toLowerCase().includes('hr') ||
                                     currentUser.department.toLowerCase().includes('people') ||
-                                    currentUser.role === 'super_admin') &&
-                                  msg.leaveRequest.hrApproval.status === 'pending';
-
-                                if (!canApproveBoss && !canApproveHr) {
-                                  return (
-                                    <div className="rounded-xl bg-black/15 p-2 text-center text-[10px] opacity-75">
-                                      Menunggu verifikasi dari Atasan ({msg.leaveRequest.bossApproval.approverName}) dan HR ({msg.leaveRequest.hrApproval.approverName}).
-                                    </div>
-                                  );
-                                }
+                                    currentUser.position.toLowerCase().includes('hr') ||
+                                    currentUser.role === 'super_admin');
 
                                 return (
-                                  <div className="space-y-2">
-                                    {/* Boss Approval Actions */}
-                                    {canApproveBoss && (
-                                      <div className="flex items-center gap-2">
-                                        <span className="text-[10px] font-bold opacity-80 shrink-0">Aksi Atasan:</span>
-                                        <button
-                                          type="button"
-                                          onClick={() => processLeaveApproval(activeChannel.id, msg.id, 'boss', 'declined')}
-                                          className="flex-1 rounded-xl bg-rose-600 hover:bg-rose-700 text-white py-2 px-3 text-xs font-bold transition cursor-pointer shadow-xs"
-                                        >
-                                          ✕ Tolak (Atasan)
-                                        </button>
-                                        <button
-                                          type="button"
-                                          onClick={() => processLeaveApproval(activeChannel.id, msg.id, 'boss', 'approved')}
-                                          className="flex-1 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white py-2 px-3 text-xs font-black transition cursor-pointer shadow-xs"
-                                        >
-                                          ✓ Setujui (Atasan)
-                                        </button>
+                                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+                                    {/* Box 1: Atasan Langsung */}
+                                    <div className={`p-3 rounded-xl flex flex-col justify-between ${
+                                      msg.leaveRequest.bossApproval.status === 'approved'
+                                        ? isMe ? 'bg-emerald-500/20 text-emerald-200' : 'bg-emerald-50 text-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-200'
+                                        : msg.leaveRequest.bossApproval.status === 'declined'
+                                        ? isMe ? 'bg-rose-500/20 text-rose-200' : 'bg-rose-50 text-rose-900 dark:bg-rose-950/40 dark:text-rose-200'
+                                        : isMe ? 'bg-white/10' : 'bg-slate-50 dark:bg-slate-800/50'
+                                    }`}>
+                                      <div>
+                                        <div className="flex items-center justify-between gap-1 mb-1">
+                                          <span className="font-bold text-[11px]">1. Atasan Langsung:</span>
+                                          <span className={`text-[10px] font-black px-2 py-0.5 rounded-lg ${
+                                            msg.leaveRequest.bossApproval.status === 'approved'
+                                              ? 'bg-emerald-500 text-white'
+                                              : msg.leaveRequest.bossApproval.status === 'declined'
+                                              ? 'bg-rose-500 text-white'
+                                              : 'bg-amber-400 text-slate-950'
+                                          }`}>
+                                            {msg.leaveRequest.bossApproval.status === 'approved'
+                                              ? '✓ SUDAH DISETUJUI'
+                                              : msg.leaveRequest.bossApproval.status === 'declined'
+                                              ? '✕ DITOLAK'
+                                              : '⏳ MENUNGGU'}
+                                          </span>
+                                        </div>
+                                        <div className="font-bold truncate text-[11px]">
+                                          {msg.leaveRequest.bossApproval.approverName}
+                                        </div>
+                                        {msg.leaveRequest.bossApproval.status === 'approved' && (
+                                          <div className="text-[10px] text-emerald-400 font-semibold mt-1 flex items-center gap-1">
+                                            <Check className="h-3 w-3 shrink-0" />
+                                            <span>Sudah di-approve oleh Atasan Langsung ({msg.leaveRequest.bossApproval.approverName})</span>
+                                          </div>
+                                        )}
+                                        {msg.leaveRequest.bossApproval.status === 'declined' && (
+                                          <div className="text-[10px] text-rose-400 font-semibold mt-1">
+                                            Ditolak oleh Atasan Langsung
+                                          </div>
+                                        )}
+                                        {msg.leaveRequest.bossApproval.status === 'pending' && !canApproveBoss && (
+                                          <div className="text-[10px] opacity-75 font-medium mt-1">
+                                            Menunggu persetujuan Atasan Langsung
+                                          </div>
+                                        )}
                                       </div>
-                                    )}
 
-                                    {/* HR Approval Actions */}
-                                    {canApproveHr && (
-                                      <div className="flex items-center gap-2">
-                                        <span className="text-[10px] font-bold opacity-80 shrink-0">Aksi HR:</span>
-                                        <button
-                                          type="button"
-                                          onClick={() => processLeaveApproval(activeChannel.id, msg.id, 'hr', 'declined')}
-                                          className="flex-1 rounded-xl bg-rose-600 hover:bg-rose-700 text-white py-2 px-3 text-xs font-bold transition cursor-pointer shadow-xs"
-                                        >
-                                          ✕ Tolak (HR)
-                                        </button>
-                                        <button
-                                          type="button"
-                                          onClick={() => processLeaveApproval(activeChannel.id, msg.id, 'hr', 'approved')}
-                                          className="flex-1 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white py-2 px-3 text-xs font-black transition cursor-pointer shadow-xs"
-                                        >
-                                          ✓ Setujui (HR)
-                                        </button>
+                                      {/* Individual Atasan Action Buttons */}
+                                      {canApproveBoss && (
+                                        <div className={`mt-3 pt-2 flex items-center gap-2 ${isMe ? 'border-t border-white/15' : 'border-t border-slate-200 dark:border-slate-700'}`}>
+                                          <button
+                                            type="button"
+                                            onClick={() => processLeaveApproval(activeChannel.id, msg.id, 'boss', 'declined')}
+                                            className="flex-1 rounded-xl bg-rose-600 hover:bg-rose-700 text-white py-1.5 px-2 text-xs font-bold transition cursor-pointer shadow-xs text-center"
+                                          >
+                                            ✕ Tolak
+                                          </button>
+                                          <button
+                                            type="button"
+                                            onClick={() => processLeaveApproval(activeChannel.id, msg.id, 'boss', 'approved')}
+                                            className="flex-1 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white py-1.5 px-2 text-xs font-black transition cursor-pointer shadow-xs text-center"
+                                          >
+                                            ✓ Setujui
+                                          </button>
+                                        </div>
+                                      )}
+                                    </div>
+
+                                    {/* Box 2: Tim HR */}
+                                    <div className={`p-3 rounded-xl flex flex-col justify-between ${
+                                      msg.leaveRequest.hrApproval.status === 'approved'
+                                        ? isMe ? 'bg-emerald-500/20 text-emerald-200' : 'bg-emerald-50 text-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-200'
+                                        : msg.leaveRequest.hrApproval.status === 'declined'
+                                        ? isMe ? 'bg-rose-500/20 text-rose-200' : 'bg-rose-50 text-rose-900 dark:bg-rose-950/40 dark:text-rose-200'
+                                        : isMe ? 'bg-white/10' : 'bg-slate-50 dark:bg-slate-800/50'
+                                    }`}>
+                                      <div>
+                                        <div className="flex items-center justify-between gap-1 mb-1">
+                                          <span className="font-bold text-[11px]">2. Tim HR:</span>
+                                          <span className={`text-[10px] font-black px-2 py-0.5 rounded-lg ${
+                                            msg.leaveRequest.hrApproval.status === 'approved'
+                                              ? 'bg-emerald-500 text-white'
+                                              : msg.leaveRequest.hrApproval.status === 'declined'
+                                              ? 'bg-rose-500 text-white'
+                                              : 'bg-amber-400 text-slate-950'
+                                          }`}>
+                                            {msg.leaveRequest.hrApproval.status === 'approved'
+                                              ? '✓ SUDAH DISETUJUI'
+                                              : msg.leaveRequest.hrApproval.status === 'declined'
+                                              ? '✕ DITOLAK'
+                                              : '⏳ MENUNGGU'}
+                                          </span>
+                                        </div>
+                                        <div className="font-bold truncate text-[11px]">
+                                          {msg.leaveRequest.hrApproval.approverName}
+                                        </div>
+                                        {msg.leaveRequest.hrApproval.status === 'approved' && (
+                                          <div className="text-[10px] text-emerald-400 font-semibold mt-1 flex items-center gap-1">
+                                            <Check className="h-3 w-3 shrink-0" />
+                                            <span>Sudah di-approve & divalidasi oleh Tim HR ({msg.leaveRequest.hrApproval.approverName})</span>
+                                          </div>
+                                        )}
+                                        {msg.leaveRequest.hrApproval.status === 'declined' && (
+                                          <div className="text-[10px] text-rose-400 font-semibold mt-1">
+                                            Ditolak oleh Tim HR
+                                          </div>
+                                        )}
+                                        {msg.leaveRequest.hrApproval.status === 'pending' && !canApproveHr && (
+                                          <div className="text-[10px] opacity-75 font-medium mt-1">
+                                            Menunggu verifikasi & persetujuan Tim HR
+                                          </div>
+                                        )}
                                       </div>
-                                    )}
+
+                                      {/* Individual HR Action Buttons */}
+                                      {canApproveHr && (
+                                        <div className={`mt-3 pt-2 flex items-center gap-2 ${isMe ? 'border-t border-white/15' : 'border-t border-slate-200 dark:border-slate-700'}`}>
+                                          <button
+                                            type="button"
+                                            onClick={() => processLeaveApproval(activeChannel.id, msg.id, 'hr', 'declined')}
+                                            className="flex-1 rounded-xl bg-rose-600 hover:bg-rose-700 text-white py-1.5 px-2 text-xs font-bold transition cursor-pointer shadow-xs text-center"
+                                          >
+                                            ✕ Tolak
+                                          </button>
+                                          <button
+                                            type="button"
+                                            onClick={() => processLeaveApproval(activeChannel.id, msg.id, 'hr', 'approved')}
+                                            className="flex-1 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white py-1.5 px-2 text-xs font-black transition cursor-pointer shadow-xs text-center"
+                                          >
+                                            ✓ Setujui
+                                          </button>
+                                        </div>
+                                      )}
+                                    </div>
                                   </div>
                                 );
                               })()}
                             </div>
+
+                            {/* Overall Status Banner */}
+                            {msg.leaveRequest.overallStatus === 'fully_approved' && (
+                              <div className="pt-2">
+                                <div className="rounded-xl bg-emerald-500/20 p-2.5 text-center text-xs font-black text-emerald-300 flex items-center justify-center gap-2">
+                                  <Check className="h-4 w-4 stroke-[3]" />
+                                  <span>CUTI TELAH RESMI DISETUJUI OLEH ATASAN & HR!</span>
+                                </div>
+                              </div>
+                            )}
+                            {msg.leaveRequest.overallStatus === 'declined' && (
+                              <div className="pt-2">
+                                <div className="rounded-xl bg-rose-500/20 p-2.5 text-center text-xs font-bold text-rose-300">
+                                  Pengajuan cuti ini telah ditolak.
+                                </div>
+                              </div>
+                            )}
                           </div>
                         )}
 
@@ -1329,6 +1420,22 @@ export const ChatMessaging: React.FC = () => {
                       >
                         <Star className={`h-3 w-3 ${msg.isStarred ? 'fill-amber-500 text-amber-500' : ''}`} />
                       </button>
+
+                      {/* Hapus Pesan Chat */}
+                      {(isMe || currentUser.role === 'super_admin' || currentUser.role === 'admin') && (
+                        <button
+                          type="button"
+                          onClick={() => setMessageToDelete({
+                            channelId: activeChannel.id,
+                            messageId: msg.id,
+                            previewText: msg.content || (msg.sticker ? 'Stiker' : 'Berkas Lampiran')
+                          })}
+                          className="transition rounded p-1 hover:bg-rose-100 dark:hover:bg-rose-950/50 text-slate-400 hover:text-rose-600 cursor-pointer opacity-100 md:opacity-0 md:group-hover/msg:opacity-100"
+                          title="Hapus Pesan"
+                        >
+                          <Trash2 className="h-3 w-3" />
+                        </button>
+                      )}
 
                       {/* Quick Reactions on Hover */}
                       <button
@@ -2205,9 +2312,9 @@ export const ChatMessaging: React.FC = () => {
 
       {/* 3. PENGATURAN GRUP DIVISI / SALURAN (MANAGE MEMBERS, AVATAR, STARRING) */}
       {showSettingsModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-xs animate-in fade-in duration-150">
-          <div className="w-full max-w-lg rounded-3xl bg-white p-6 shadow-2xl dark:bg-slate-900 border border-slate-200 dark:border-slate-800 space-y-4">
-            <div className="flex items-center justify-between border-b border-slate-100 pb-3 dark:border-slate-800">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 md:p-8 bg-slate-950/70 backdrop-blur-xs animate-in fade-in duration-150 overflow-y-auto">
+          <div className="w-full max-w-lg my-auto max-h-[85vh] flex flex-col rounded-3xl bg-white shadow-2xl dark:bg-slate-900 border border-slate-200 dark:border-slate-800 overflow-hidden">
+            <div className="flex items-center justify-between border-b border-slate-100 p-5 pb-3 dark:border-slate-800 shrink-0">
               <div className="flex items-center gap-2.5">
                 <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-slate-950 text-white dark:bg-white dark:text-slate-950 shadow-xs">
                   <Settings className="h-5 w-5" />
@@ -2224,18 +2331,21 @@ export const ChatMessaging: React.FC = () => {
               <button
                 type="button"
                 onClick={() => setShowSettingsModal(false)}
-                className="rounded-xl p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-700 dark:hover:bg-slate-800"
+                className="rounded-xl p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-700 dark:hover:bg-slate-800 cursor-pointer"
+                title="Tutup (Esc)"
               >
                 <X className="h-4 w-4" />
               </button>
             </div>
+
+            <div className="flex-1 overflow-y-auto p-5 space-y-4">
 
             {/* Quick Star & Avatar Banner */}
             <div className="flex items-center justify-between rounded-2xl border border-slate-100 bg-slate-50/80 p-3.5 dark:border-slate-800 dark:bg-slate-800/40">
               <div className="flex items-center gap-3">
                 <div
                   onClick={() => avatarFileInputRef.current?.click()}
-                  className="group relative cursor-pointer"
+                  className="group relative cursor-pointer shrink-0"
                   title="Klik untuk ganti foto profil grup"
                 >
                   <img
@@ -2247,6 +2357,14 @@ export const ChatMessaging: React.FC = () => {
                     alt={activeChannel.name}
                     className="h-14 w-14 rounded-2xl object-cover ring-2 ring-white dark:ring-slate-700 shadow-xs group-hover:opacity-75 transition"
                   />
+                  {activeChannel.isPrivate && (
+                    <span
+                      className="absolute -bottom-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full bg-slate-900 text-amber-300 ring-2 ring-white dark:ring-slate-900 shadow-sm z-10"
+                      title="Saluran Privat (Terkunci)"
+                    >
+                      <Lock className="h-3 w-3" />
+                    </span>
+                  )}
                   <div className="absolute inset-0 bg-black/40 rounded-2xl opacity-0 group-hover:opacity-100 transition flex items-center justify-center text-white">
                     <Camera className="h-4 w-4" />
                   </div>
@@ -2395,13 +2513,14 @@ export const ChatMessaging: React.FC = () => {
                   })}
               </div>
             </div>
+          </div>
 
             {/* Save Channel Settings */}
-            <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-100 dark:border-slate-800">
+            <div className="flex items-center justify-end gap-2 p-5 border-t border-slate-100 dark:border-slate-800 shrink-0 bg-slate-50/50 dark:bg-slate-900/50">
               <button
                 type="button"
                 onClick={() => setShowSettingsModal(false)}
-                className="rounded-xl border border-slate-200 px-4 py-2 text-xs font-bold text-slate-600 hover:bg-slate-100 dark:border-slate-700 dark:text-slate-300"
+                className="rounded-xl border border-slate-200 px-4 py-2 text-xs font-bold text-slate-600 hover:bg-slate-100 dark:border-slate-700 dark:text-slate-300 cursor-pointer"
               >
                 Tutup
               </button>
@@ -2414,7 +2533,7 @@ export const ChatMessaging: React.FC = () => {
                   });
                   setShowSettingsModal(false);
                 }}
-                className="rounded-xl bg-slate-950 px-4 py-2 text-xs font-bold text-white shadow-xs hover:bg-black dark:bg-white dark:text-slate-900 transition"
+                className="rounded-xl bg-slate-950 px-4 py-2 text-xs font-bold text-white shadow-xs hover:bg-black dark:bg-white dark:text-slate-900 transition cursor-pointer"
               >
                 Simpan Perubahan
               </button>
@@ -2441,6 +2560,50 @@ export const ChatMessaging: React.FC = () => {
             >
               <X className="h-5 w-5" />
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* 5. DELETE MESSAGE CONFIRMATION MODAL */}
+      {messageToDelete && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-xs animate-in fade-in">
+          <div className="w-full max-w-sm rounded-3xl bg-white p-5 shadow-2xl dark:bg-slate-900 border border-slate-200 dark:border-slate-800 space-y-4">
+            <div className="flex items-start gap-3">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-rose-100 text-rose-600 dark:bg-rose-950/60 dark:text-rose-400">
+                <Trash2 className="h-5 w-5" />
+              </div>
+              <div className="min-w-0 flex-1">
+                <h4 className="text-sm font-bold text-slate-900 dark:text-white">
+                  Hapus Pesan Chat Ini?
+                </h4>
+                <p className="text-xs text-slate-600 dark:text-slate-300 mt-1 line-clamp-2 italic bg-slate-50 dark:bg-slate-800 p-2 rounded-xl">
+                  "{messageToDelete.previewText}"
+                </p>
+                <p className="text-[11px] text-slate-400 dark:text-slate-500 mt-1.5">
+                  Pesan yang telah dihapus akan terhapus secara permanen dari percakapan.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100 dark:border-slate-800">
+              <button
+                type="button"
+                onClick={() => setMessageToDelete(null)}
+                className="rounded-xl border border-slate-200 px-4 py-2 text-xs font-bold text-slate-700 hover:bg-slate-100 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800 transition cursor-pointer"
+              >
+                Batal
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  deleteMessage(messageToDelete.channelId, messageToDelete.messageId);
+                  setMessageToDelete(null);
+                }}
+                className="rounded-xl bg-rose-600 hover:bg-rose-700 text-white px-4 py-2 text-xs font-bold shadow-xs transition active:scale-95 cursor-pointer"
+              >
+                Hapus Pesan
+              </button>
+            </div>
           </div>
         </div>
       )}
